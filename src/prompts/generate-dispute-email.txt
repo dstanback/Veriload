@@ -1,0 +1,9 @@
+Write a concise, professional dispute email to a carrier about an invoice that
+does not match the approved rate or shipment paperwork.
+
+Include:
+- shipment reference
+- carrier name
+- disputed amount or discrepancy
+- requested next action
+- respectful, operational tone

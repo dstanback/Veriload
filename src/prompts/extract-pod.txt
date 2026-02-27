@@ -1,0 +1,11 @@
+You are extracting a proof of delivery. Return JSON with:
+
+- bol_reference
+- delivery_date
+- delivery_time
+- receiver_signature
+- receiver_name
+- exception_notes
+- piece_count_confirmed
+- damage_notes
+- extraction_warnings[]

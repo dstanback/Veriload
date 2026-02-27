@@ -1,0 +1,158 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Organization {
+  id         String      @id @default(uuid()) @db.Uuid
+  name       String
+  slug       String      @unique
+  createdAt  DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt  DateTime    @updatedAt @map("updated_at") @db.Timestamptz(6)
+  settings   Json        @default("{}")
+  users      User[]
+  documents  Document[]
+  shipments  Shipment[]
+  auditLogs  AuditLog[]
+
+  @@map("organizations")
+}
+
+model User {
+  id             String          @id @default(uuid()) @db.Uuid
+  organizationId String          @map("organization_id") @db.Uuid
+  email          String          @unique
+  name           String
+  role           String          @default("viewer")
+  createdAt      DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  discrepancies  Discrepancy[]
+  auditLogs      AuditLog[]
+
+  @@map("users")
+}
+
+model Document {
+  id                String             @id @default(uuid()) @db.Uuid
+  organizationId    String             @map("organization_id") @db.Uuid
+  source            String
+  sourceMetadata    Json               @default("{}") @map("source_metadata")
+  originalFilename  String?            @map("original_filename")
+  storagePath       String             @map("storage_path")
+  mimeType          String             @map("mime_type")
+  pageCount         Int?               @map("page_count")
+  status            String             @default("pending")
+  docType           String?            @map("doc_type")
+  docTypeConfidence Float?             @map("doc_type_confidence")
+  processingError   String?            @map("processing_error")
+  createdAt         DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  processedAt       DateTime?          @map("processed_at") @db.Timestamptz(6)
+  organization      Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  extractedData     ExtractedData[]
+  shipmentLinks     ShipmentDocument[]
+  sourceFor         Discrepancy[]      @relation("DiscrepancySourceDocument")
+  compareFor        Discrepancy[]      @relation("DiscrepancyCompareDocument")
+
+  @@index([organizationId, status], map: "idx_documents_org_status")
+  @@index([organizationId, docType], map: "idx_documents_doc_type")
+  @@map("documents")
+}
+
+model ExtractedData {
+  id                 String   @id @default(uuid()) @db.Uuid
+  documentId         String   @map("document_id") @db.Uuid
+  docType            String   @map("doc_type")
+  extractedFields    Json     @map("extracted_fields")
+  fieldConfidences   Json?    @map("field_confidences")
+  rawLlmResponse     Json?    @map("raw_llm_response")
+  extractionModel    String?  @map("extraction_model")
+  extractionCostCents Float?  @map("extraction_cost_cents")
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  document           Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@map("extracted_data")
+}
+
+model Shipment {
+  id               String             @id @default(uuid()) @db.Uuid
+  organizationId   String             @map("organization_id") @db.Uuid
+  shipmentRef      String?            @map("shipment_ref")
+  bolNumber        String?            @map("bol_number")
+  proNumber        String?            @map("pro_number")
+  shipperName      String?            @map("shipper_name")
+  consigneeName    String?            @map("consignee_name")
+  carrierName      String?            @map("carrier_name")
+  carrierScac      String?            @map("carrier_scac")
+  origin           String?
+  destination      String?
+  status           String             @default("pending")
+  matchConfidence  Float?             @map("match_confidence")
+  discrepancyLevel String?            @map("discrepancy_level")
+  createdAt        DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
+  organization     Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  documents        ShipmentDocument[]
+  discrepancies    Discrepancy[]
+  auditLogs        AuditLog[]
+
+  @@index([organizationId, status], map: "idx_shipments_org_status")
+  @@index([organizationId, discrepancyLevel], map: "idx_shipments_discrepancy")
+  @@index([organizationId, bolNumber], map: "idx_shipments_bol")
+  @@map("shipments")
+}
+
+model ShipmentDocument {
+  shipmentId String   @map("shipment_id") @db.Uuid
+  documentId String   @map("document_id") @db.Uuid
+  role       String
+  shipment   Shipment @relation(fields: [shipmentId], references: [id], onDelete: Cascade)
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@id([shipmentId, documentId])
+  @@map("shipment_documents")
+}
+
+model Discrepancy {
+  id             String    @id @default(uuid()) @db.Uuid
+  shipmentId     String    @map("shipment_id") @db.Uuid
+  fieldName      String    @map("field_name")
+  sourceDocId    String?   @map("source_doc_id") @db.Uuid
+  compareDocId   String?   @map("compare_doc_id") @db.Uuid
+  sourceValue    String?   @map("source_value")
+  compareValue   String?   @map("compare_value")
+  varianceAmount Decimal?  @map("variance_amount") @db.Decimal(12, 2)
+  variancePct    Float?    @map("variance_pct")
+  severity       String
+  resolution     String?
+  resolvedById   String?   @map("resolved_by") @db.Uuid
+  resolvedAt     DateTime? @map("resolved_at") @db.Timestamptz(6)
+  notes          String?
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  shipment       Shipment  @relation(fields: [shipmentId], references: [id], onDelete: Cascade)
+  sourceDocument Document? @relation("DiscrepancySourceDocument", fields: [sourceDocId], references: [id])
+  compareDocument Document? @relation("DiscrepancyCompareDocument", fields: [compareDocId], references: [id])
+  resolvedBy     User?     @relation(fields: [resolvedById], references: [id])
+
+  @@index([shipmentId], map: "idx_discrepancies_shipment")
+  @@map("discrepancies")
+}
+
+model AuditLog {
+  id             String       @id @default(uuid()) @db.Uuid
+  organizationId String       @map("organization_id") @db.Uuid
+  userId         String?      @map("user_id") @db.Uuid
+  shipmentId     String?      @map("shipment_id") @db.Uuid
+  action         String
+  details        Json         @default("{}")
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user           User?        @relation(fields: [userId], references: [id])
+  shipment       Shipment?    @relation(fields: [shipmentId], references: [id])
+
+  @@index([shipmentId], map: "idx_audit_log_shipment")
+  @@map("audit_log")
+}

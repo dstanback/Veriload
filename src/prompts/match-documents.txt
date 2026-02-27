@@ -1,0 +1,10 @@
+You are matching freight documents into shipment groups. Compare the extracted
+data from two documents and answer:
+
+{
+  "match": boolean,
+  "confidence": 0.0-1.0,
+  "reasons": [string]
+}
+
+Prioritize exact BoL, PRO, and shipper reference matches before fuzzy matching.

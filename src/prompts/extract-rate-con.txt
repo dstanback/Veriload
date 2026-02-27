@@ -1,0 +1,13 @@
+You are extracting a freight rate confirmation. Return JSON with:
+
+- rate_con_number
+- carrier_name
+- carrier_scac
+- origin { city, state, zip }
+- destination { city, state, zip }
+- agreed_rate
+- fuel_surcharge_pct
+- accessorial_schedule[]
+- effective_date
+- equipment_type
+- extraction_warnings[]

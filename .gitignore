@@ -1,0 +1,8 @@
+.next
+node_modules
+.env
+.env.local
+.veriload-storage
+coverage
+dist
+*.log

@@ -1,0 +1,61 @@
+import { z } from "zod";
+
+const envSchema = z.object({
+  DATABASE_URL: z.string().optional(),
+  STORAGE_ENDPOINT: z.string().optional(),
+  STORAGE_ACCESS_KEY: z.string().optional(),
+  STORAGE_SECRET_KEY: z.string().optional(),
+  STORAGE_BUCKET: z.string().optional(),
+  STORAGE_PUBLIC_BASE_URL: z.string().optional(),
+  ANTHROPIC_API_KEY: z.string().optional(),
+  ANTHROPIC_CLASSIFIER_MODEL: z.string().optional(),
+  ANTHROPIC_EXTRACTION_MODEL: z.string().optional(),
+  ANTHROPIC_CLASSIFIER_INPUT_COST_PER_MILLION_TOKENS: z.coerce.number().default(80),
+  ANTHROPIC_CLASSIFIER_OUTPUT_COST_PER_MILLION_TOKENS: z.coerce.number().default(400),
+  ANTHROPIC_EXTRACTION_INPUT_COST_PER_MILLION_TOKENS: z.coerce.number().default(300),
+  ANTHROPIC_EXTRACTION_OUTPUT_COST_PER_MILLION_TOKENS: z.coerce.number().default(1500),
+  SENDGRID_API_KEY: z.string().optional(),
+  SENDGRID_INBOUND_WEBHOOK_SECRET: z.string().optional(),
+  EMAIL_DOMAIN: z.string().default("veriload.local"),
+  REDIS_URL: z.string().optional(),
+  PROCESS_DOCUMENT_CONCURRENCY: z.coerce.number().default(4),
+  RECONCILE_CONCURRENCY: z.coerce.number().default(8),
+  NEXT_PUBLIC_APP_URL: z.string().default("http://localhost:3000"),
+  PDF_RENDER_DPI: z.coerce.number().default(220),
+  DEV_USER_EMAIL: z.string().default("ops@acmefreight.com"),
+  DEV_USER_NAME: z.string().default("Maya Patel"),
+  DEV_ORG_NAME: z.string().default("Acme Logistics"),
+  DEV_ORG_SLUG: z.string().default("acme")
+});
+
+export const env = envSchema.parse({
+  DATABASE_URL: process.env.DATABASE_URL,
+  STORAGE_ENDPOINT: process.env.STORAGE_ENDPOINT,
+  STORAGE_ACCESS_KEY: process.env.STORAGE_ACCESS_KEY,
+  STORAGE_SECRET_KEY: process.env.STORAGE_SECRET_KEY,
+  STORAGE_BUCKET: process.env.STORAGE_BUCKET,
+  STORAGE_PUBLIC_BASE_URL: process.env.STORAGE_PUBLIC_BASE_URL,
+  ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY,
+  ANTHROPIC_CLASSIFIER_MODEL: process.env.ANTHROPIC_CLASSIFIER_MODEL,
+  ANTHROPIC_EXTRACTION_MODEL: process.env.ANTHROPIC_EXTRACTION_MODEL,
+  ANTHROPIC_CLASSIFIER_INPUT_COST_PER_MILLION_TOKENS:
+    process.env.ANTHROPIC_CLASSIFIER_INPUT_COST_PER_MILLION_TOKENS,
+  ANTHROPIC_CLASSIFIER_OUTPUT_COST_PER_MILLION_TOKENS:
+    process.env.ANTHROPIC_CLASSIFIER_OUTPUT_COST_PER_MILLION_TOKENS,
+  ANTHROPIC_EXTRACTION_INPUT_COST_PER_MILLION_TOKENS:
+    process.env.ANTHROPIC_EXTRACTION_INPUT_COST_PER_MILLION_TOKENS,
+  ANTHROPIC_EXTRACTION_OUTPUT_COST_PER_MILLION_TOKENS:
+    process.env.ANTHROPIC_EXTRACTION_OUTPUT_COST_PER_MILLION_TOKENS,
+  SENDGRID_API_KEY: process.env.SENDGRID_API_KEY,
+  SENDGRID_INBOUND_WEBHOOK_SECRET: process.env.SENDGRID_INBOUND_WEBHOOK_SECRET,
+  EMAIL_DOMAIN: process.env.EMAIL_DOMAIN,
+  REDIS_URL: process.env.REDIS_URL,
+  PROCESS_DOCUMENT_CONCURRENCY: process.env.PROCESS_DOCUMENT_CONCURRENCY,
+  RECONCILE_CONCURRENCY: process.env.RECONCILE_CONCURRENCY,
+  NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
+  PDF_RENDER_DPI: process.env.PDF_RENDER_DPI,
+  DEV_USER_EMAIL: process.env.DEV_USER_EMAIL,
+  DEV_USER_NAME: process.env.DEV_USER_NAME,
+  DEV_ORG_NAME: process.env.DEV_ORG_NAME,
+  DEV_ORG_SLUG: process.env.DEV_ORG_SLUG
+});
