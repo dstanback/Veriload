@@ -6,7 +6,8 @@ import { getCurrentAppSession } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { env } from "@/lib/env";
 import { processDocument } from "@/lib/pipeline/process-document";
-import { reconcileShipment } from "@/lib/pipeline/reconcile";
+import { computeDiscrepancies, reconcileShipment } from "@/lib/pipeline/reconcile";
+import { worstSeverity } from "@/lib/utils/tolerances";
 import { enqueueProcessDocument, isProcessingQueueAvailable } from "@/lib/queue/client";
 import { slugify } from "@/lib/utils";
 import type { DiscrepancyRecord } from "@/types/discrepancies";
@@ -871,6 +872,145 @@ export async function ingestStoredDocumentForOrganization(params: {
     shipment,
     queued: false
   };
+}
+
+export async function editApproveShipment(
+  id: string,
+  edits: Array<{ documentId: string; fieldName: string; newValue: string }>,
+  userId?: string | null
+) {
+  const session = await getScopedSession();
+  const actorId = userId ?? session.userId;
+
+  const shipmentId = await db.$transaction(async (tx) => {
+    const existing = await tx.shipment.findFirst({
+      where: {
+        id,
+        organizationId: session.organizationId
+      }
+    });
+
+    if (!existing) {
+      return null;
+    }
+
+    if (existing.status !== "pending" && existing.status !== "matched") {
+      throw new Error(
+        `Cannot edit-approve shipment with status "${existing.status}". Only pending or matched shipments can be edited.`
+      );
+    }
+
+    // Apply edits to extracted fields in each document's ExtractedData
+    const editsByDocument = new Map<string, Array<{ fieldName: string; newValue: string }>>();
+    for (const edit of edits) {
+      const list = editsByDocument.get(edit.documentId) ?? [];
+      list.push({ fieldName: edit.fieldName, newValue: edit.newValue });
+      editsByDocument.set(edit.documentId, list);
+    }
+
+    for (const [documentId, docEdits] of editsByDocument) {
+      const extractedData = await tx.extractedData.findFirst({
+        where: { documentId },
+        orderBy: { createdAt: "desc" }
+      });
+
+      if (!extractedData) continue;
+
+      const fields = (extractedData.extractedFields as Record<string, unknown>) ?? {};
+      for (const edit of docEdits) {
+        // Try to preserve the original type (number vs string)
+        const numericValue = Number(edit.newValue);
+        fields[edit.fieldName] =
+          edit.newValue !== "" && !Number.isNaN(numericValue) && String(numericValue) === edit.newValue
+            ? numericValue
+            : edit.newValue;
+      }
+
+      await tx.extractedData.update({
+        where: { id: extractedData.id },
+        data: {
+          extractedFields: fields as Prisma.InputJsonValue
+        }
+      });
+    }
+
+    // Re-fetch all documents linked to this shipment with updated extracted data
+    const links = await tx.shipmentDocument.findMany({
+      where: { shipmentId: existing.id }
+    });
+
+    const documentRecords: DocumentRecord[] = [];
+    for (const link of links) {
+      const doc = await tx.document.findUnique({
+        where: { id: link.documentId },
+        ...documentWithLatestExtractionArgs
+      });
+      if (doc) {
+        documentRecords.push(mapDocument(doc));
+      }
+    }
+
+    // Re-compute discrepancies with the edited data
+    const shipmentRecord = mapShipment(existing);
+    const newDiscrepancies = computeDiscrepancies(shipmentRecord, documentRecords);
+    const newDiscrepancyLevel =
+      newDiscrepancies.length > 0
+        ? worstSeverity(newDiscrepancies.map((d) => d.severity))
+        : null;
+
+    // Delete old discrepancies and insert new ones
+    await tx.discrepancy.deleteMany({
+      where: { shipmentId: existing.id }
+    });
+
+    if (newDiscrepancies.length > 0) {
+      await tx.discrepancy.createMany({
+        data: toDiscrepancyCreateMany(newDiscrepancies)
+      });
+    }
+
+    // Resolve all discrepancies as manually_approved
+    await tx.discrepancy.updateMany({
+      where: {
+        shipmentId: existing.id,
+        resolution: null
+      },
+      data: {
+        resolution: "manually_approved",
+        resolvedById: actorId,
+        resolvedAt: new Date()
+      }
+    });
+
+    // Update shipment to approved
+    await tx.shipment.update({
+      where: { id: existing.id },
+      data: {
+        status: "approved",
+        discrepancyLevel: newDiscrepancyLevel
+      }
+    });
+
+    // Create audit log entry
+    await tx.auditLog.create({
+      data: {
+        organizationId: session.organizationId,
+        userId: actorId,
+        shipmentId: existing.id,
+        action: "shipment_edit_approved",
+        details: {
+          user_name: session.name,
+          edits,
+          fields_modified: edits.length,
+          timestamp: new Date().toISOString()
+        }
+      }
+    });
+
+    return existing.id;
+  });
+
+  return shipmentId ? getShipmentDetail(shipmentId) : null;
 }
 
 export async function createDemoDataIfEmpty() {
