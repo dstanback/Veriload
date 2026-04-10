@@ -1,6 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { randomUUID } from "node:crypto";
 
+import { hashPassword } from "@/lib/password";
 import { db } from "@/lib/db";
 import { defaultDevStore } from "@/lib/demo-data";
 
@@ -29,7 +30,9 @@ async function main() {
     }
   });
 
-  console.log(`Creating ${defaultDevStore.users.length} users...`);
+  const demoPassword = hashPassword("demo1234");
+
+  console.log(`Creating ${defaultDevStore.users.length} users + demo user...`);
   const userIdMap = new Map<string, string>();
   for (const user of defaultDevStore.users) {
     const created = await db.user.create({
@@ -37,11 +40,24 @@ async function main() {
         email: user.email,
         name: user.name,
         role: user.role,
+        passwordHash: demoPassword,
         organizationId: organization.id
       }
     });
     userIdMap.set(user.id, created.id);
   }
+
+  // Create a dedicated demo login user
+  const demoUser = await db.user.create({
+    data: {
+      email: "demo@acme.com",
+      name: "Demo User",
+      role: "admin",
+      passwordHash: demoPassword,
+      organizationId: organization.id
+    }
+  });
+  userIdMap.set("user_demo_login", demoUser.id);
 
   console.log(`Creating ${defaultDevStore.documents.length} documents...`);
   const documentIdMap = new Map<string, string>();

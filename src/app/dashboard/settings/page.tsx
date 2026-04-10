@@ -1,41 +1,111 @@
 export const dynamic = "force-dynamic";
 
-import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
+import { redirect } from "next/navigation";
+import { LogOut, Mail, Shield, Building2, User } from "lucide-react";
 
-export default function SettingsPage() {
+import { PageHeader } from "@/components/PageHeader";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { getCurrentAppSession, destroySession } from "@/lib/auth";
+
+async function logoutAction() {
+  "use server";
+  await destroySession();
+  redirect("/login");
+}
+
+export default async function SettingsPage() {
+  const session = await getCurrentAppSession();
+
   return (
     <div className="space-y-6">
-      <Card className="bg-white/90">
-        <p className="text-xs uppercase tracking-[0.2em] text-[color:var(--muted)]">Organization settings</p>
-        <h2 className="mt-2 text-2xl font-semibold">Workflow controls</h2>
-      </Card>
+      <PageHeader
+        title="Settings"
+        description="Account and organization settings"
+        breadcrumbs={[
+          { label: "Dashboard", href: "/dashboard" },
+          { label: "Settings" }
+        ]}
+      />
 
       <div className="grid gap-6 xl:grid-cols-2">
-        <Card className="space-y-4 bg-white/90">
-          <h3 className="text-lg font-semibold">Organization profile</h3>
-          <Input defaultValue="Acme Logistics" />
-          <Input defaultValue="docs@acme.veriload.local" />
-          <Textarea defaultValue="Auto-approve green shipments above 90 confidence. Hold any red discrepancy for manager review." rows={5} />
-          <Button>Save profile</Button>
+        {/* Profile Card */}
+        <Card className="bg-white/90">
+          <div className="flex items-center gap-3">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[color:var(--accent)]/10">
+              <User size={22} className="text-[color:var(--accent)]" />
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold">Your Profile</h3>
+              <p className="text-sm text-[color:var(--muted)]">Account information</p>
+            </div>
+          </div>
+          <div className="mt-6 space-y-4">
+            <div className="flex items-center gap-3 rounded-2xl border border-[color:var(--border)] bg-[color:var(--background)]/50 px-4 py-3">
+              <User size={16} className="text-[color:var(--muted)]" />
+              <div>
+                <p className="text-xs text-[color:var(--muted)]">Name</p>
+                <p className="text-sm font-medium">{session.name}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3 rounded-2xl border border-[color:var(--border)] bg-[color:var(--background)]/50 px-4 py-3">
+              <Mail size={16} className="text-[color:var(--muted)]" />
+              <div>
+                <p className="text-xs text-[color:var(--muted)]">Email</p>
+                <p className="text-sm font-medium">{session.email}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3 rounded-2xl border border-[color:var(--border)] bg-[color:var(--background)]/50 px-4 py-3">
+              <Shield size={16} className="text-[color:var(--muted)]" />
+              <div>
+                <p className="text-xs text-[color:var(--muted)]">Role</p>
+                <p className="text-sm font-medium capitalize">{session.role}</p>
+              </div>
+            </div>
+          </div>
         </Card>
 
-        <Card className="space-y-4 bg-white/90">
-          <h3 className="text-lg font-semibold">Tolerance thresholds</h3>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Input defaultValue="0.00" />
-            <Input defaultValue="0.02" />
-            <Input defaultValue="0.02" />
-            <Input defaultValue="0.05" />
+        {/* Organization Card */}
+        <Card className="bg-white/90">
+          <div className="flex items-center gap-3">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[color:var(--accent)]/10">
+              <Building2 size={22} className="text-[color:var(--accent)]" />
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold">Organization</h3>
+              <p className="text-sm text-[color:var(--muted)]">Workspace details</p>
+            </div>
           </div>
-          <p className="text-sm text-[color:var(--muted)]">
-            Left to right: amount green, amount yellow, weight green, weight yellow.
-          </p>
-          <Button variant="secondary">Update tolerances</Button>
+          <div className="mt-6 space-y-4">
+            <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--background)]/50 px-4 py-3">
+              <p className="text-xs text-[color:var(--muted)]">Organization ID</p>
+              <p className="mt-0.5 font-mono text-xs text-[color:var(--muted)]">{session.organizationId}</p>
+            </div>
+            <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--background)]/50 px-4 py-3">
+              <p className="text-xs text-[color:var(--muted)]">Slug</p>
+              <p className="text-sm font-medium">{session.organizationSlug}</p>
+            </div>
+          </div>
         </Card>
       </div>
+
+      {/* Logout */}
+      <Card className="bg-white/90">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h3 className="text-lg font-semibold">Session</h3>
+            <p className="text-sm text-[color:var(--muted)]">
+              Signed in as <strong>{session.email}</strong>
+            </p>
+          </div>
+          <form action={logoutAction}>
+            <Button type="submit" variant="danger" className="gap-2">
+              <LogOut size={16} />
+              Sign out
+            </Button>
+          </form>
+        </div>
+      </Card>
     </div>
   );
 }
