@@ -376,6 +376,10 @@ export async function approveShipment(id: string, userId?: string | null) {
       return null;
     }
 
+    if (existing.status !== "pending" && existing.status !== "matched") {
+      throw new Error(`Cannot approve shipment with status "${existing.status}". Only pending or matched shipments can be approved.`);
+    }
+
     await tx.shipment.update({
       where: {
         id: existing.id
@@ -386,7 +390,8 @@ export async function approveShipment(id: string, userId?: string | null) {
     });
     await tx.discrepancy.updateMany({
       where: {
-        shipmentId: existing.id
+        shipmentId: existing.id,
+        resolution: null
       },
       data: {
         resolution: "manually_approved",
@@ -399,8 +404,11 @@ export async function approveShipment(id: string, userId?: string | null) {
         organizationId: session.organizationId,
         userId: actorId,
         shipmentId: existing.id,
-        action: "approved",
-        details: {}
+        action: "shipment_approved",
+        details: {
+          user_name: session.name,
+          timestamp: new Date().toISOString()
+        }
       }
     });
 
@@ -410,7 +418,12 @@ export async function approveShipment(id: string, userId?: string | null) {
   return shipment ? getShipmentDetail(shipment) : null;
 }
 
-export async function disputeShipment(id: string, notes: string, userId?: string | null) {
+export async function disputeShipment(
+  id: string,
+  reason: string,
+  discrepancyIds?: string[] | null,
+  userId?: string | null
+) {
   const session = await getScopedSession();
   const actorId = userId ?? session.userId;
 
@@ -435,25 +448,31 @@ export async function disputeShipment(id: string, notes: string, userId?: string
         discrepancyLevel: existing.discrepancyLevel ?? "red"
       }
     });
-    await tx.discrepancy.updateMany({
-      where: {
-        shipmentId: existing.id
-      },
+
+    const discrepancyWhere = discrepancyIds && discrepancyIds.length > 0
+      ? { shipmentId: existing.id, id: { in: discrepancyIds } }
+      : { shipmentId: existing.id, severity: { in: ["red", "yellow"] } };
+
+    const updateResult = await tx.discrepancy.updateMany({
+      where: discrepancyWhere,
       data: {
         resolution: "disputed",
-        notes,
+        notes: reason,
         resolvedById: actorId,
         resolvedAt: new Date()
       }
     });
+
     await tx.auditLog.create({
       data: {
         organizationId: session.organizationId,
         userId: actorId,
         shipmentId: existing.id,
-        action: "disputed",
+        action: "shipment_disputed",
         details: {
-          notes
+          reason,
+          user_name: session.name,
+          disputed_discrepancy_count: updateResult.count
         }
       }
     });
