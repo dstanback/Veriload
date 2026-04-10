@@ -18,6 +18,8 @@ export const orgSettingsSchema = z.object({
   autoApproveEnabled: z.boolean().optional(),
   autoApproveConfidenceThreshold: z.number().min(80).max(99).optional(),
   tolerances: tolerancesSchema.optional(),
+  dailySummaryEnabled: z.boolean().optional(),
+  summaryRecipients: z.array(z.string().email()).optional(),
 });
 
 /* ------------------------------------------------------------------ */
@@ -30,6 +32,8 @@ export interface OrgSettings {
   autoApproveEnabled: boolean;
   autoApproveConfidenceThreshold: number;
   tolerances: Tolerances;
+  dailySummaryEnabled: boolean;
+  summaryRecipients: string[];
 }
 
 export interface TeamMember {

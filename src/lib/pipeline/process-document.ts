@@ -42,6 +42,40 @@ function validateExtraction(docType: DocumentRecord["doc_type"], extracted: Extr
   };
 }
 
+function buildFailedDocument(
+  params: {
+    documentId: string;
+    organizationId: string;
+    source: DocumentSource;
+    sourceMetadata: Record<string, unknown>;
+    originalFilename: string | null;
+    storagePath: string;
+    mimeType: string;
+  },
+  stage: string,
+  error: unknown
+): DocumentRecord {
+  const now = new Date().toISOString();
+  const message = error instanceof Error ? error.message : `${error}`;
+  return {
+    id: params.documentId,
+    organization_id: params.organizationId,
+    source: params.source,
+    source_metadata: params.sourceMetadata,
+    original_filename: params.originalFilename,
+    storage_path: params.storagePath,
+    mime_type: params.mimeType,
+    page_count: null,
+    status: "failed",
+    doc_type: null,
+    doc_type_confidence: null,
+    processing_error: `${stage}: ${message}`,
+    created_at: now,
+    processed_at: now,
+    extracted_data: null
+  };
+}
+
 export async function processDocument(params: {
   documentId?: string;
   organizationId: string;
@@ -52,23 +86,53 @@ export async function processDocument(params: {
   mimeType: string;
 }): Promise<DocumentRecord> {
   const documentId = params.documentId ?? randomUUID();
-  const imageResult = await convertPdfToImages({
-    documentId,
-    storagePath: params.storagePath,
-    mimeType: params.mimeType
-  });
-  const classification = await classifyDocument({
-    filename: params.originalFilename,
-    mimeType: params.mimeType,
-    pageImages: imageResult.pageImages,
-    sourceText: JSON.stringify(params.sourceMetadata)
-  });
-  const extraction = await extractFieldsFromDocument({
-    docType: classification.doc_type,
-    filename: params.originalFilename,
-    pageImages: imageResult.pageImages
-  });
-  const validatedFields = validateExtraction(classification.doc_type, extraction.extracted);
+  const baseParams = { ...params, documentId };
+
+  // Stage 1: PDF rendering
+  let imageResult;
+  try {
+    imageResult = await convertPdfToImages({
+      documentId,
+      storagePath: params.storagePath,
+      mimeType: params.mimeType
+    });
+  } catch (error) {
+    return buildFailedDocument(baseParams, "PDF rendering failed", error);
+  }
+
+  // Stage 2: Classification
+  let classification;
+  try {
+    classification = await classifyDocument({
+      filename: params.originalFilename,
+      mimeType: params.mimeType,
+      pageImages: imageResult.pageImages,
+      sourceText: JSON.stringify(params.sourceMetadata)
+    });
+  } catch (error) {
+    return buildFailedDocument(baseParams, "Classification failed", error);
+  }
+
+  // Stage 3: Extraction
+  let extraction;
+  try {
+    extraction = await extractFieldsFromDocument({
+      docType: classification.doc_type,
+      filename: params.originalFilename,
+      pageImages: imageResult.pageImages
+    });
+  } catch (error) {
+    return buildFailedDocument(baseParams, "Field extraction failed", error);
+  }
+
+  // Stage 4: Validation
+  let validatedFields;
+  try {
+    validatedFields = validateExtraction(classification.doc_type, extraction.extracted);
+  } catch (error) {
+    return buildFailedDocument(baseParams, "Validation failed", error);
+  }
+
   const now = new Date().toISOString();
 
   return {

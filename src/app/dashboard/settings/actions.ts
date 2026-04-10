@@ -25,6 +25,10 @@ function parseOrgSettings(raw: unknown): OrgSettings {
       typeof obj.autoApproveConfidenceThreshold === "number"
         ? obj.autoApproveConfidenceThreshold
         : 90,
+    dailySummaryEnabled: obj.dailySummaryEnabled !== false,
+    summaryRecipients: Array.isArray(obj.summaryRecipients)
+      ? (obj.summaryRecipients as string[]).filter((r) => typeof r === "string")
+      : [],
     tolerances: {
       totalAmountGreen:
         typeof tolerancesRaw.totalAmountGreen === "number"

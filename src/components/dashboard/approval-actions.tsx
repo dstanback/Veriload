@@ -7,6 +7,7 @@ import {
   Loader2,
   Lock,
   Mail,
+  Pencil,
   Send,
   X,
 } from "lucide-react";
@@ -30,6 +31,8 @@ interface ApprovalActionsProps {
   carrierName: string | null;
   shipmentRef: string | null;
   discrepancies: DiscrepancyRecord[];
+  editMode?: boolean;
+  onToggleEditMode?: () => void;
 }
 
 interface DisputeEmail {
@@ -59,6 +62,8 @@ export function ApprovalActions({
   carrierName,
   shipmentRef,
   discrepancies,
+  editMode,
+  onToggleEditMode,
 }: ApprovalActionsProps) {
   const router = useRouter();
   const { toast } = useToast();
@@ -162,6 +167,21 @@ export function ApprovalActions({
             <Tooltip text={lockReasons[status] ?? "Action unavailable"} />
           )}
         </div>
+        {onToggleEditMode && (
+          <div className="group relative">
+            <Button
+              disabled={isLocked || loading !== null}
+              onClick={onToggleEditMode}
+              variant="secondary"
+            >
+              <Pencil className="mr-2 h-4 w-4" />
+              {editMode ? "Cancel Edit" : "Edit & Approve"}
+            </Button>
+            {isLocked && (
+              <Tooltip text={lockReasons[status] ?? "Action unavailable"} />
+            )}
+          </div>
+        )}
       </div>
 
       <AnimatePresence>

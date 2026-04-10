@@ -37,7 +37,7 @@ function createDiscrepancy(params: Omit<DiscrepancyRecord, "id" | "created_at">)
   };
 }
 
-function computeDiscrepancies(shipment: ShipmentRecord, documents: DocumentRecord[]): DiscrepancyRecord[] {
+export function computeDiscrepancies(shipment: ShipmentRecord, documents: DocumentRecord[]): DiscrepancyRecord[] {
   const invoice = documents.find((document) => document.doc_type === "invoice")?.extracted_data?.extracted_fields;
   const bol = documents.find((document) => document.doc_type === "bol")?.extracted_data?.extracted_fields;
   const rateCon = documents.find((document) => document.doc_type === "rate_con")?.extracted_data?.extracted_fields;

@@ -3,6 +3,7 @@
 import { AnimatePresence, motion } from "framer-motion";
 import {
   AlertTriangle,
+  Bell,
   Loader2,
   Plus,
   RotateCcw,
@@ -44,6 +45,7 @@ const TABS = [
   { id: "profile", label: "Profile", icon: User },
   { id: "tolerances", label: "Tolerances", icon: Settings },
   { id: "auto-approve", label: "Auto-Approve", icon: Zap },
+  { id: "notifications", label: "Notifications", icon: Bell },
   { id: "team", label: "Team", icon: Users },
 ] as const;
 
@@ -94,6 +96,7 @@ export function SettingsTabs({ data }: { data: SettingsPageData }) {
             {activeTab === "profile" && <ProfileTab data={data} />}
             {activeTab === "tolerances" && <TolerancesTab data={data} />}
             {activeTab === "auto-approve" && <AutoApproveTab data={data} />}
+            {activeTab === "notifications" && <NotificationsTab data={data} />}
             {activeTab === "team" && <TeamTab data={data} />}
           </motion.div>
         </AnimatePresence>
@@ -492,6 +495,157 @@ function AutoApproveTab({ data }: { data: SettingsPageData }) {
           reconciliation. No manual review is required for these shipments.
         </p>
       </div>
+
+      <div className="flex justify-end">
+        <Button disabled={saving} onClick={handleSave}>
+          {saving ? (
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          ) : (
+            <Save className="mr-2 h-4 w-4" />
+          )}
+          {saving ? "Saving..." : "Save Settings"}
+        </Button>
+      </div>
+    </Card>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Notifications tab                                                  */
+/* ------------------------------------------------------------------ */
+
+function NotificationsTab({ data }: { data: SettingsPageData }) {
+  const router = useRouter();
+  const { toast } = useToast();
+  const [enabled, setEnabled] = useState(
+    data.organization.settings.dailySummaryEnabled
+  );
+  const [recipients, setRecipients] = useState<string[]>(
+    data.organization.settings.summaryRecipients
+  );
+  const [newEmail, setNewEmail] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const addRecipient = () => {
+    const trimmed = newEmail.trim().toLowerCase();
+    if (!trimmed || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) return;
+    if (recipients.includes(trimmed)) return;
+    setRecipients((prev) => [...prev, trimmed]);
+    setNewEmail("");
+  };
+
+  const removeRecipient = (email: string) => {
+    setRecipients((prev) => prev.filter((r) => r !== email));
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    const result = await updateOrgSettings({
+      dailySummaryEnabled: enabled,
+      summaryRecipients: recipients,
+    });
+    if (result.success) {
+      toast("Notification settings saved.", "success");
+      startTransition(() => router.refresh());
+    } else {
+      toast(result.error ?? "Failed to save settings.", "error");
+    }
+    setSaving(false);
+  };
+
+  return (
+    <Card className="space-y-6 bg-white/90">
+      <h3 className="text-lg font-semibold">Daily Summary Notifications</h3>
+
+      <div className="flex items-center gap-4">
+        <Toggle
+          id="daily-summary-toggle"
+          checked={enabled}
+          onChange={setEnabled}
+        />
+        <label
+          htmlFor="daily-summary-toggle"
+          className="text-sm font-medium text-[color:var(--foreground)]"
+        >
+          {enabled ? "Enabled" : "Disabled"}
+        </label>
+      </div>
+
+      <AnimatePresence>
+        {enabled && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.2 }}
+            className="space-y-4 overflow-hidden"
+          >
+            <div>
+              <label className="mb-2 block text-xs uppercase tracking-[0.2em] text-[color:var(--muted)]">
+                Recipients
+              </label>
+
+              {recipients.length > 0 && (
+                <div className="mb-3 flex flex-wrap gap-2">
+                  {recipients.map((email) => (
+                    <span
+                      key={email}
+                      className="inline-flex items-center gap-1.5 rounded-full bg-indigo-50 px-3 py-1 text-xs font-medium text-indigo-700"
+                    >
+                      {email}
+                      <button
+                        type="button"
+                        onClick={() => removeRecipient(email)}
+                        className="rounded-full p-0.5 transition hover:bg-indigo-200"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              <div className="flex gap-2">
+                <Input
+                  type="email"
+                  placeholder="team@example.com"
+                  value={newEmail}
+                  onChange={(e) => setNewEmail(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      addRecipient();
+                    }
+                  }}
+                />
+                <Button
+                  variant="secondary"
+                  onClick={addRecipient}
+                  disabled={!newEmail.trim()}
+                >
+                  <Plus className="mr-1.5 h-4 w-4" />
+                  Add
+                </Button>
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-[color:var(--border)] bg-slate-50 px-4 py-3">
+              <p className="text-sm text-[color:var(--muted)]">
+                <Bell className="mr-1.5 inline h-4 w-4" />
+                When enabled, a reconciliation summary email is generated daily
+                at 8 AM UTC on weekdays. You can preview past summaries on the{" "}
+                <a
+                  href="/dashboard/notifications"
+                  className="font-medium text-indigo-600 underline"
+                >
+                  Notifications
+                </a>{" "}
+                page.
+              </p>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <div className="flex justify-end">
         <Button disabled={saving} onClick={handleSave}>
