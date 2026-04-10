@@ -20,6 +20,7 @@
     "@aws-sdk/lib-storage": "^3.882.0",
     "@napi-rs/canvas": "^0.1.95",
     "@prisma/client": "^6.6.0",
+    "@tanstack/react-table": "^8.21.3",
     "bullmq": "^5.43.0",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
