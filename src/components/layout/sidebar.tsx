@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { FileSearch, LayoutDashboard, Settings, UploadCloud } from "lucide-react";
+import { Bell, FileSearch, LayoutDashboard, Settings, UploadCloud } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
@@ -21,6 +21,11 @@ const links = [
     href: "/dashboard/upload",
     label: "Upload",
     icon: UploadCloud
+  },
+  {
+    href: "/dashboard/notifications",
+    label: "Notifications",
+    icon: Bell
   },
   {
     href: "/dashboard/settings",
