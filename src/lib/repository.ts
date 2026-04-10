@@ -874,6 +874,55 @@ export async function ingestStoredDocumentForOrganization(params: {
   };
 }
 
+export async function resetDocumentForReprocessing(documentId: string) {
+  const session = await getScopedSession();
+
+  return db.$transaction(async (tx) => {
+    const existing = await tx.document.findFirst({
+      where: {
+        id: documentId,
+        organizationId: session.organizationId
+      }
+    });
+
+    if (!existing) {
+      return null;
+    }
+
+    const oldDocType = existing.docType;
+    const oldConfidence = existing.docTypeConfidence;
+
+    // Delete all existing ExtractedData for this document
+    await tx.extractedData.deleteMany({
+      where: { documentId: existing.id }
+    });
+
+    // Reset document to pending state
+    await tx.document.update({
+      where: { id: existing.id },
+      data: {
+        status: "pending",
+        docType: null,
+        docTypeConfidence: null,
+        processingError: null,
+        processedAt: null
+      }
+    });
+
+    return {
+      documentId: existing.id,
+      organizationId: existing.organizationId,
+      originalFilename: existing.originalFilename,
+      storagePath: existing.storagePath,
+      mimeType: existing.mimeType,
+      source: existing.source,
+      sourceMetadata: (existing.sourceMetadata as Record<string, unknown>) ?? {},
+      oldDocType,
+      oldConfidence
+    };
+  });
+}
+
 export async function editApproveShipment(
   id: string,
   edits: Array<{ documentId: string; fieldName: string; newValue: string }>,
