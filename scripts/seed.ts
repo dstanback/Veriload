@@ -3,9 +3,10 @@ import { randomUUID } from "node:crypto";
 
 import { db } from "@/lib/db";
 import { defaultDevStore } from "@/lib/demo-data";
-import { env } from "@/lib/env";
 
 async function main() {
+  console.log("Clearing existing data...");
+
   await db.$transaction([
     db.auditLog.deleteMany(),
     db.discrepancy.deleteMany(),
@@ -17,23 +18,24 @@ async function main() {
     db.organization.deleteMany()
   ]);
 
+  const orgDef = defaultDevStore.organizations[0];
+
+  console.log(`Creating organization: ${orgDef.name}`);
   const organization = await db.organization.create({
     data: {
-      name: env.DEV_ORG_NAME,
-      slug: env.DEV_ORG_SLUG,
-      settings: defaultDevStore.organizations[0]?.settings ?? {
-        autoApproveEnabled: true,
-        autoApproveConfidenceThreshold: 90
-      }
+      name: orgDef.name,
+      slug: orgDef.slug,
+      settings: orgDef.settings as unknown as Prisma.InputJsonValue
     }
   });
 
+  console.log(`Creating ${defaultDevStore.users.length} users...`);
   const userIdMap = new Map<string, string>();
   for (const user of defaultDevStore.users) {
     const created = await db.user.create({
       data: {
-        email: user.email === "ops@acmefreight.com" ? env.DEV_USER_EMAIL : user.email,
-        name: user.name === "Maya Patel" ? env.DEV_USER_NAME : user.name,
+        email: user.email,
+        name: user.name,
         role: user.role,
         organizationId: organization.id
       }
@@ -41,6 +43,7 @@ async function main() {
     userIdMap.set(user.id, created.id);
   }
 
+  console.log(`Creating ${defaultDevStore.documents.length} documents...`);
   const documentIdMap = new Map<string, string>();
   for (const document of defaultDevStore.documents) {
     const id = randomUUID();
@@ -82,6 +85,7 @@ async function main() {
     }
   }
 
+  console.log(`Creating ${defaultDevStore.shipments.length} shipments...`);
   const shipmentIdMap = new Map<string, string>();
   for (const shipment of defaultDevStore.shipments) {
     const id = randomUUID();
@@ -108,16 +112,21 @@ async function main() {
     });
   }
 
+  console.log(`Linking ${defaultDevStore.shipment_documents.length} shipment-document associations...`);
   if (defaultDevStore.shipment_documents.length > 0) {
-    await db.shipmentDocument.createMany({
-      data: defaultDevStore.shipment_documents.map((link) => ({
+    const linkData = defaultDevStore.shipment_documents
+      .filter((link) => shipmentIdMap.has(link.shipment_id) && documentIdMap.has(link.document_id))
+      .map((link) => ({
         shipmentId: shipmentIdMap.get(link.shipment_id)!,
         documentId: documentIdMap.get(link.document_id)!,
         role: link.role
-      }))
-    });
+      }));
+    if (linkData.length > 0) {
+      await db.shipmentDocument.createMany({ data: linkData });
+    }
   }
 
+  console.log(`Creating ${defaultDevStore.discrepancies.length} discrepancies...`);
   if (defaultDevStore.discrepancies.length > 0) {
     await db.discrepancy.createMany({
       data: defaultDevStore.discrepancies.map((discrepancy) => ({
@@ -139,6 +148,7 @@ async function main() {
     });
   }
 
+  console.log(`Creating ${defaultDevStore.audit_log.length} audit log entries...`);
   if (defaultDevStore.audit_log.length > 0) {
     await db.auditLog.createMany({
       data: defaultDevStore.audit_log.map((entry) => ({
@@ -152,7 +162,15 @@ async function main() {
     });
   }
 
-  console.log("Seeded Prisma database with Veriload demo data.");
+  console.log("\n--- Seed Summary ---");
+  console.log(`Organization: ${orgDef.name} (${orgDef.slug})`);
+  console.log(`Users:        ${defaultDevStore.users.length}`);
+  console.log(`Shipments:    ${defaultDevStore.shipments.length}`);
+  console.log(`Documents:    ${defaultDevStore.documents.length}`);
+  console.log(`Discrepancies:${defaultDevStore.discrepancies.length}`);
+  console.log(`Audit logs:   ${defaultDevStore.audit_log.length}`);
+  console.log(`Links:        ${defaultDevStore.shipment_documents.length}`);
+  console.log("\nSeeded Prisma database with Veriload demo data.");
 }
 
 main()

@@ -24,8 +24,8 @@ const envSchema = z.object({
   PDF_RENDER_DPI: z.coerce.number().default(220),
   DEV_USER_EMAIL: z.string().default("ops@acmefreight.com"),
   DEV_USER_NAME: z.string().default("Maya Patel"),
-  DEV_ORG_NAME: z.string().default("Acme Logistics"),
-  DEV_ORG_SLUG: z.string().default("acme")
+  DEV_ORG_NAME: z.string().default("Acme Logistics Co."),
+  DEV_ORG_SLUG: z.string().default("acme-logistics")
 });
 
 export const env = envSchema.parse({
