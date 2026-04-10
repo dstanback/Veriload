@@ -360,6 +360,35 @@ export async function getDashboardSummary(): Promise<DashboardSummary> {
   };
 }
 
+export async function getShipmentAuditLogs(shipmentId: string): Promise<AuditLogRecord[]> {
+  const organizationId = await getScopedOrganizationId();
+  const logs = await db.auditLog.findMany({
+    where: {
+      organizationId,
+      shipmentId
+    },
+    orderBy: {
+      createdAt: "desc"
+    }
+  });
+
+  return logs.map(mapAuditLog);
+}
+
+export async function getShipmentStatusCounts(): Promise<Record<string, number>> {
+  const organizationId = await getScopedOrganizationId();
+  const [total, pending, matched, approved, disputed, paid] = await Promise.all([
+    db.shipment.count({ where: { organizationId } }),
+    db.shipment.count({ where: { organizationId, status: "pending" } }),
+    db.shipment.count({ where: { organizationId, status: "matched" } }),
+    db.shipment.count({ where: { organizationId, status: "approved" } }),
+    db.shipment.count({ where: { organizationId, status: "disputed" } }),
+    db.shipment.count({ where: { organizationId, status: "paid" } })
+  ]);
+
+  return { total, pending, matched, approved, disputed, paid };
+}
+
 export async function approveShipment(id: string, userId?: string | null) {
   const session = await getScopedSession();
   const actorId = userId ?? session.userId;
