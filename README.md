@@ -1,5 +1,7 @@
 # Veriload
 
+[![CI](https://github.com/dstanback/Veriload/actions/workflows/ci.yml/badge.svg)](https://github.com/dstanback/Veriload/actions/workflows/ci.yml)
+
 Veriload is an MVP for automated Bill of Lading reconciliation and freight invoice matching. This repo contains a Next.js 14 application, typed domain models, prompt templates, Prisma-backed persistence, BullMQ workers, and the first ingestion/extraction/reconciliation workflow.
 
 ## What is implemented
