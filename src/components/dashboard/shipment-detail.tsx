@@ -42,7 +42,7 @@ export function ShipmentDetail({ shipment }: { shipment: ShipmentDetailType }) {
       </Card>
 
       <section className="grid gap-6 xl:grid-cols-[1.4fr_0.6fr]">
-        <DocumentViewer documents={shipment.documents} />
+        <DocumentViewer documents={shipment.documents} discrepancies={shipment.discrepancies} />
         <div className="space-y-4">
           <Card className="bg-[#17202a] text-white">
             <p className="text-xs uppercase tracking-[0.2em] text-white/65">Lane</p>
