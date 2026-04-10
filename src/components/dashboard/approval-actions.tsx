@@ -1,7 +1,15 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { CheckCircle, Loader2, Lock, Send, X } from "lucide-react";
+import {
+  CheckCircle,
+  ClipboardCopy,
+  Loader2,
+  Lock,
+  Mail,
+  Send,
+  X,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
 import { startTransition, useCallback, useRef, useState } from "react";
 
@@ -12,6 +20,10 @@ import { cn } from "@/lib/utils";
 import type { DiscrepancyRecord } from "@/types/discrepancies";
 import type { ShipmentStatus } from "@/types/shipments";
 
+/* ------------------------------------------------------------------ */
+/*  Types                                                             */
+/* ------------------------------------------------------------------ */
+
 interface ApprovalActionsProps {
   shipmentId: string;
   status: ShipmentStatus;
@@ -20,6 +32,15 @@ interface ApprovalActionsProps {
   discrepancies: DiscrepancyRecord[];
 }
 
+interface DisputeEmail {
+  subject: string;
+  body: string;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Constants                                                         */
+/* ------------------------------------------------------------------ */
+
 const LOCKED_STATUSES: ShipmentStatus[] = ["approved", "disputed", "paid"];
 
 const lockReasons: Record<string, string> = {
@@ -27,6 +48,10 @@ const lockReasons: Record<string, string> = {
   disputed: "This shipment is currently disputed",
   paid: "This shipment has already been paid",
 };
+
+/* ------------------------------------------------------------------ */
+/*  ApprovalActions                                                   */
+/* ------------------------------------------------------------------ */
 
 export function ApprovalActions({
   shipmentId,
@@ -65,6 +90,45 @@ export function ApprovalActions({
       setLoading(null);
     }
   };
+
+  const handleDisputeSubmit = useCallback(
+    async (
+      reason: string,
+      discrepancyIds: string[]
+    ): Promise<DisputeEmail | null> => {
+      setLoading("dispute");
+      try {
+        const res = await fetch(`/api/shipments/${shipmentId}/dispute`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ reason, discrepancyIds }),
+        });
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}));
+          throw new Error(body.error ?? "Failed to submit dispute.");
+        }
+        const data = (await res.json()) as {
+          email?: DisputeEmail;
+        };
+        toast("Dispute submitted successfully.", "success");
+        startTransition(() => {
+          router.refresh();
+        });
+        return data.email ?? null;
+      } catch (err) {
+        toast(
+          err instanceof Error
+            ? err.message
+            : "Failed to submit dispute.",
+          "error"
+        );
+        return null;
+      } finally {
+        setLoading(null);
+      }
+    },
+    [shipmentId, toast, router]
+  );
 
   return (
     <>
@@ -108,39 +172,7 @@ export function ApprovalActions({
             shipmentRef={shipmentRef}
             discrepancies={discrepancies}
             loading={loading === "dispute"}
-            onSubmit={async (reason, discrepancyIds) => {
-              setLoading("dispute");
-              try {
-                const res = await fetch(
-                  `/api/shipments/${shipmentId}/dispute`,
-                  {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ reason, discrepancyIds }),
-                  }
-                );
-                if (!res.ok) {
-                  const body = await res.json().catch(() => ({}));
-                  throw new Error(
-                    body.error ?? "Failed to submit dispute."
-                  );
-                }
-                toast("Dispute submitted successfully.", "success");
-                setDrawerOpen(false);
-                startTransition(() => {
-                  router.refresh();
-                });
-              } catch (err) {
-                toast(
-                  err instanceof Error
-                    ? err.message
-                    : "Failed to submit dispute.",
-                  "error"
-                );
-              } finally {
-                setLoading(null);
-              }
-            }}
+            onSubmit={handleDisputeSubmit}
             onClose={() => setDrawerOpen(false)}
           />
         )}
@@ -148,6 +180,10 @@ export function ApprovalActions({
     </>
   );
 }
+
+/* ------------------------------------------------------------------ */
+/*  Tooltip                                                           */
+/* ------------------------------------------------------------------ */
 
 function Tooltip({ text }: { text: string }) {
   return (
@@ -157,6 +193,83 @@ function Tooltip({ text }: { text: string }) {
     </span>
   );
 }
+
+/* ------------------------------------------------------------------ */
+/*  Email preview pane                                                */
+/* ------------------------------------------------------------------ */
+
+function EmailPreview({
+  email,
+  carrierName,
+  onClose,
+}: {
+  email: DisputeEmail;
+  carrierName: string | null;
+  onClose: () => void;
+}) {
+  const { toast } = useToast();
+
+  const handleCopy = async () => {
+    const text = `To: ${carrierName ?? "Carrier"}\nSubject: ${email.subject}\n\n${email.body}`;
+    try {
+      await navigator.clipboard.writeText(text);
+      toast("Email copied to clipboard.", "success");
+    } catch {
+      toast("Failed to copy to clipboard.", "error");
+    }
+  };
+
+  return (
+    <div className="flex flex-1 flex-col">
+      <div className="flex-1 space-y-4 overflow-y-auto px-6 py-6">
+        <div className="flex items-center gap-2 text-emerald-700">
+          <CheckCircle className="h-5 w-5" />
+          <p className="text-sm font-semibold">
+            Dispute submitted — email draft ready
+          </p>
+        </div>
+
+        <div className="space-y-3 rounded-2xl border border-[color:var(--border)] bg-slate-50 p-5">
+          <div>
+            <p className="text-[10px] uppercase tracking-[0.2em] text-[color:var(--muted)]">
+              To
+            </p>
+            <p className="mt-0.5 text-sm font-medium text-[color:var(--foreground)]">
+              {carrierName ?? "Carrier"} — Accounts Receivable
+            </p>
+          </div>
+          <div>
+            <p className="text-[10px] uppercase tracking-[0.2em] text-[color:var(--muted)]">
+              Subject
+            </p>
+            <p className="mt-0.5 text-sm font-semibold text-[color:var(--foreground)]">
+              {email.subject}
+            </p>
+          </div>
+          <hr className="border-[color:var(--border)]" />
+          <div className="whitespace-pre-wrap text-sm leading-relaxed text-[color:var(--foreground)]">
+            {email.body}
+          </div>
+        </div>
+      </div>
+
+      <div className="flex gap-3 border-t border-[color:var(--border)] px-6 py-4">
+        <Button variant="secondary" className="flex-1" onClick={handleCopy}>
+          <ClipboardCopy className="mr-2 h-4 w-4" />
+          Copy to Clipboard
+        </Button>
+        <Button className="flex-1" onClick={onClose}>
+          <Mail className="mr-2 h-4 w-4" />
+          Done
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Dispute drawer                                                    */
+/* ------------------------------------------------------------------ */
 
 function DisputeDrawer({
   shipmentId,
@@ -172,7 +285,10 @@ function DisputeDrawer({
   shipmentRef: string | null;
   discrepancies: DiscrepancyRecord[];
   loading: boolean;
-  onSubmit: (reason: string, discrepancyIds: string[]) => Promise<void>;
+  onSubmit: (
+    reason: string,
+    discrepancyIds: string[]
+  ) => Promise<DisputeEmail | null>;
   onClose: () => void;
 }) {
   const flaggable = discrepancies.filter(
@@ -186,6 +302,7 @@ function DisputeDrawer({
     return initial;
   });
   const [reason, setReason] = useState("");
+  const [emailPreview, setEmailPreview] = useState<DisputeEmail | null>(null);
   const backdropRef = useRef<HTMLDivElement>(null);
 
   const toggleDiscrepancy = useCallback((id: string) => {
@@ -200,9 +317,12 @@ function DisputeDrawer({
     });
   }, []);
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!reason.trim()) return;
-    onSubmit(reason.trim(), Array.from(selected));
+    const email = await onSubmit(reason.trim(), Array.from(selected));
+    if (email) {
+      setEmailPreview(email);
+    }
   };
 
   return (
@@ -215,7 +335,7 @@ function DisputeDrawer({
         exit={{ opacity: 0 }}
         className="fixed inset-0 z-40 bg-black/30"
         onClick={(e) => {
-          if (e.target === backdropRef.current) onClose();
+          if (e.target === backdropRef.current && !loading) onClose();
         }}
       />
 
@@ -230,120 +350,135 @@ function DisputeDrawer({
         {/* Header */}
         <div className="flex items-center justify-between border-b border-[color:var(--border)] px-6 py-4">
           <h3 className="text-lg font-semibold text-[color:var(--foreground)]">
-            Submit Dispute
+            {emailPreview ? "Dispute Email Preview" : "Submit Dispute"}
           </h3>
           <button
             onClick={onClose}
-            className="rounded-full p-1.5 text-[color:var(--muted)] transition hover:bg-black/5"
+            disabled={loading}
+            className="rounded-full p-1.5 text-[color:var(--muted)] transition hover:bg-black/5 disabled:opacity-50"
           >
             <X className="h-5 w-5" />
           </button>
         </div>
 
-        {/* Body */}
-        <div className="flex-1 space-y-6 overflow-y-auto px-6 py-6">
-          {/* Shipment info */}
-          <div className="space-y-3">
-            <div>
-              <label className="text-xs uppercase tracking-[0.2em] text-[color:var(--muted)]">
-                Carrier
-              </label>
-              <p className="mt-1 text-sm font-medium text-[color:var(--foreground)]">
-                {carrierName ?? "Unknown carrier"}
-              </p>
-            </div>
-            <div>
-              <label className="text-xs uppercase tracking-[0.2em] text-[color:var(--muted)]">
-                Shipment reference
-              </label>
-              <p className="mt-1 text-sm font-medium text-[color:var(--foreground)]">
-                {shipmentRef ?? shipmentId}
-              </p>
-            </div>
-          </div>
-
-          {/* Discrepancy checkboxes */}
-          {flaggable.length > 0 && (
-            <div className="space-y-3">
-              <p className="text-xs uppercase tracking-[0.2em] text-[color:var(--muted)]">
-                Discrepancies to dispute
-              </p>
-              <div className="space-y-2">
-                {flaggable.map((d) => (
-                  <label
-                    key={d.id}
-                    className={cn(
-                      "flex cursor-pointer items-start gap-3 rounded-xl border px-4 py-3 transition",
-                      selected.has(d.id)
-                        ? "border-[color:var(--danger)] bg-rose-50"
-                        : "border-[color:var(--border)] bg-white hover:bg-black/[0.02]"
-                    )}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={selected.has(d.id)}
-                      onChange={() => toggleDiscrepancy(d.id)}
-                      className="mt-0.5 h-4 w-4 shrink-0 rounded accent-[color:var(--danger)]"
-                    />
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium text-[color:var(--foreground)]">
-                        {d.field_name}
-                      </p>
-                      <p className="mt-0.5 text-xs text-[color:var(--muted)]">
-                        {d.source_value ?? "—"} vs {d.compare_value ?? "—"}
-                        {d.variance_amount != null && (
-                          <span className="ml-1.5 font-medium text-rose-600">
-                            (${Math.abs(d.variance_amount).toFixed(2)} variance)
-                          </span>
-                        )}
-                      </p>
-                    </div>
-                    <span
-                      className={cn(
-                        "shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase",
-                        d.severity === "red"
-                          ? "bg-rose-100 text-rose-800"
-                          : "bg-amber-100 text-amber-900"
-                      )}
-                    >
-                      {d.severity}
-                    </span>
+        {emailPreview ? (
+          /* ---- Email preview ---- */
+          <EmailPreview
+            email={emailPreview}
+            carrierName={carrierName}
+            onClose={onClose}
+          />
+        ) : (
+          /* ---- Dispute form ---- */
+          <>
+            <div className="flex-1 space-y-6 overflow-y-auto px-6 py-6">
+              {/* Shipment info */}
+              <div className="space-y-3">
+                <div>
+                  <label className="text-xs uppercase tracking-[0.2em] text-[color:var(--muted)]">
+                    Carrier
                   </label>
-                ))}
+                  <p className="mt-1 text-sm font-medium text-[color:var(--foreground)]">
+                    {carrierName ?? "Unknown carrier"}
+                  </p>
+                </div>
+                <div>
+                  <label className="text-xs uppercase tracking-[0.2em] text-[color:var(--muted)]">
+                    Shipment reference
+                  </label>
+                  <p className="mt-1 text-sm font-medium text-[color:var(--foreground)]">
+                    {shipmentRef ?? shipmentId}
+                  </p>
+                </div>
+              </div>
+
+              {/* Discrepancy checkboxes */}
+              {flaggable.length > 0 && (
+                <div className="space-y-3">
+                  <p className="text-xs uppercase tracking-[0.2em] text-[color:var(--muted)]">
+                    Discrepancies to dispute
+                  </p>
+                  <div className="space-y-2">
+                    {flaggable.map((d) => (
+                      <label
+                        key={d.id}
+                        className={cn(
+                          "flex cursor-pointer items-start gap-3 rounded-xl border px-4 py-3 transition",
+                          selected.has(d.id)
+                            ? "border-[color:var(--danger)] bg-rose-50"
+                            : "border-[color:var(--border)] bg-white hover:bg-black/[0.02]"
+                        )}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selected.has(d.id)}
+                          onChange={() => toggleDiscrepancy(d.id)}
+                          className="mt-0.5 h-4 w-4 shrink-0 rounded accent-[color:var(--danger)]"
+                        />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium text-[color:var(--foreground)]">
+                            {d.field_name}
+                          </p>
+                          <p className="mt-0.5 text-xs text-[color:var(--muted)]">
+                            {d.source_value ?? "—"} vs{" "}
+                            {d.compare_value ?? "—"}
+                            {d.variance_amount != null && (
+                              <span className="ml-1.5 font-medium text-rose-600">
+                                ($
+                                {Math.abs(d.variance_amount).toFixed(2)}{" "}
+                                variance)
+                              </span>
+                            )}
+                          </p>
+                        </div>
+                        <span
+                          className={cn(
+                            "shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase",
+                            d.severity === "red"
+                              ? "bg-rose-100 text-rose-800"
+                              : "bg-amber-100 text-amber-900"
+                          )}
+                        >
+                          {d.severity}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Reason textarea */}
+              <div className="space-y-2">
+                <label className="text-xs uppercase tracking-[0.2em] text-[color:var(--muted)]">
+                  Dispute reason / message
+                </label>
+                <Textarea
+                  rows={4}
+                  placeholder="Describe the issue with this shipment..."
+                  value={reason}
+                  onChange={(e) => setReason(e.target.value)}
+                />
               </div>
             </div>
-          )}
 
-          {/* Reason textarea */}
-          <div className="space-y-2">
-            <label className="text-xs uppercase tracking-[0.2em] text-[color:var(--muted)]">
-              Dispute reason / message
-            </label>
-            <Textarea
-              rows={4}
-              placeholder="Describe the issue with this shipment..."
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-            />
-          </div>
-        </div>
-
-        {/* Footer */}
-        <div className="border-t border-[color:var(--border)] px-6 py-4">
-          <Button
-            variant="danger"
-            className="w-full"
-            disabled={loading || !reason.trim()}
-            onClick={handleSubmit}
-          >
-            {loading ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <Send className="mr-2 h-4 w-4" />
-            )}
-            {loading ? "Submitting..." : "Submit Dispute"}
-          </Button>
-        </div>
+            {/* Footer */}
+            <div className="border-t border-[color:var(--border)] px-6 py-4">
+              <Button
+                variant="danger"
+                className="w-full"
+                disabled={loading || !reason.trim()}
+                onClick={handleSubmit}
+              >
+                {loading ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Send className="mr-2 h-4 w-4" />
+                )}
+                {loading ? "Submitting..." : "Submit Dispute"}
+              </Button>
+            </div>
+          </>
+        )}
       </motion.div>
     </>
   );
