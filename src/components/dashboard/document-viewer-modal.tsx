@@ -6,6 +6,7 @@ import {
   ChevronRight,
   FileText,
   Info,
+  Mail,
   Minus,
   Plus,
   X,
@@ -559,8 +560,16 @@ export function DocumentViewerModal({
                 >
                   {docTypeLabel[docType] ?? docType}
                 </Badge>
+                {loadedDoc.source === "email" && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-medium text-blue-700">
+                    <Mail className="h-3 w-3" />
+                    Email
+                  </span>
+                )}
                 <span className="text-xs text-[color:var(--muted)]">
-                  Uploaded {formatDate(loadedDoc.created_at)}
+                  {loadedDoc.source === "email"
+                    ? `From ${(loadedDoc.source_metadata?.sender as string) ?? "unknown"} — ${formatDate(loadedDoc.created_at)}`
+                    : `Uploaded ${formatDate(loadedDoc.created_at)}`}
                 </span>
               </div>
             </div>
