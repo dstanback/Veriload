@@ -12,7 +12,8 @@
     "prisma:push": "prisma db push",
     "seed": "tsx --require ./scripts/mock-server-only.cjs scripts/seed.ts",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "postinstall": "prisma generate"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0",
