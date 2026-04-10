@@ -30,7 +30,13 @@ export function ShipmentDetail({ shipment }: { shipment: ShipmentDetailType }) {
           <div className="space-y-3">
             <p className="text-right text-sm text-[color:var(--muted)]">Invoice total</p>
             <p className="text-right text-4xl font-semibold">{formatCurrency(invoiceTotal)}</p>
-            <ApprovalActions shipmentId={shipment.id} canApprove={shipment.discrepancy_level !== "red"} />
+            <ApprovalActions
+              shipmentId={shipment.id}
+              status={shipment.status}
+              carrierName={shipment.carrier_name}
+              shipmentRef={shipment.shipment_ref}
+              discrepancies={shipment.discrepancies}
+            />
           </div>
         </div>
       </Card>

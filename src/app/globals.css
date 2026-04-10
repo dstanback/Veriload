@@ -12,7 +12,8 @@
   --warning: #d28b22;
   --danger: #a33f2f;
   --border: rgba(24, 33, 45, 0.1);
-  --font-sans: "IBM Plex Sans", "Segoe UI", sans-serif;
+  --font-sans: var(--font-inter), "Inter", "Segoe UI", sans-serif;
+  --font-code: var(--font-mono), "JetBrains Mono", ui-monospace, monospace;
 }
 
 * {
