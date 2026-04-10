@@ -284,6 +284,18 @@ export async function getDocument(id: string) {
   return document ? mapDocument(document) : null;
 }
 
+export async function listRecentDocuments(limit = 20): Promise<DocumentRecord[]> {
+  const organizationId = await getScopedOrganizationId();
+  const documents = await db.document.findMany({
+    where: { organizationId },
+    orderBy: { createdAt: "desc" },
+    take: limit,
+    ...documentWithLatestExtractionArgs
+  });
+
+  return documents.map(mapDocument);
+}
+
 export async function getDashboardSummary(): Promise<DashboardSummary> {
   const organizationId = await getScopedOrganizationId();
   const today = new Date();

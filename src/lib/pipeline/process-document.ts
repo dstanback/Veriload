@@ -4,8 +4,9 @@ import { randomUUID } from "node:crypto";
 
 import { classifyDocument } from "@/lib/ai/classify";
 import { extractFieldsFromDocument } from "@/lib/ai/extract";
+import { env } from "@/lib/env";
 import { convertPdfToImages } from "@/lib/pipeline/pdf-to-images";
-import type { DocumentRecord, DocumentSource, ExtractedDataRecord } from "@/types/documents";
+import type { DocumentRecord, DocumentSource, ExtractedDataRecord, BolExtraction } from "@/types/documents";
 
 function validateExtraction(docType: DocumentRecord["doc_type"], extracted: ExtractedDataRecord["extracted_fields"]) {
   const warnings = [...(extracted.extraction_warnings ?? [])];
@@ -42,6 +43,83 @@ function validateExtraction(docType: DocumentRecord["doc_type"], extracted: Extr
   };
 }
 
+function buildMockBolExtraction(): BolExtraction {
+  return {
+    bol_number: "BOL-2024-00123",
+    shipper_name: "ABC Manufacturing",
+    shipper_address: "1200 Industrial Blvd, Chicago, IL 60601",
+    consignee_name: "XYZ Distribution",
+    consignee_address: "8500 Commerce Dr, Dallas, TX 75201",
+    carrier_name: "FastFreight Inc",
+    carrier_scac: "FFRT",
+    pickup_date: new Date().toISOString().slice(0, 10),
+    delivery_date: null,
+    pieces: 24,
+    weight: 15000,
+    weight_unit: "lbs",
+    commodity_description: "Packaged industrial components",
+    reference_numbers: ["REF-ABC-2024-0456"],
+    hazmat_flag: false,
+    special_instructions: null,
+    extraction_warnings: ["Demo mode: mock extraction used (no ANTHROPIC_API_KEY configured)."]
+  };
+}
+
+function buildMockDocumentResult(params: {
+  documentId: string;
+  organizationId: string;
+  source: DocumentSource;
+  sourceMetadata: Record<string, unknown>;
+  originalFilename: string | null;
+  storagePath: string;
+  mimeType: string;
+}): DocumentRecord {
+  const now = new Date().toISOString();
+  const mockExtraction = buildMockBolExtraction();
+
+  return {
+    id: params.documentId,
+    organization_id: params.organizationId,
+    source: params.source,
+    source_metadata: {
+      ...params.sourceMetadata,
+      classifierReasoning: "Demo mode: classified as BOL based on mock pipeline.",
+      pageImagePaths: [],
+      classifierModel: null,
+      classifierCostCents: 0
+    },
+    original_filename: params.originalFilename,
+    storage_path: params.storagePath,
+    mime_type: params.mimeType,
+    page_count: 1,
+    status: "extracted",
+    doc_type: "bol",
+    doc_type_confidence: 0.95,
+    processing_error: null,
+    created_at: now,
+    processed_at: now,
+    extracted_data: {
+      id: randomUUID(),
+      document_id: params.documentId,
+      doc_type: "bol",
+      extracted_fields: mockExtraction,
+      field_confidences: {
+        bol_number: 0.97,
+        shipper_name: 0.95,
+        consignee_name: 0.94,
+        carrier_name: 0.96,
+        carrier_scac: 0.98,
+        weight: 0.92,
+        pieces: 0.91
+      },
+      raw_llm_response: { demo: true },
+      extraction_model: null,
+      extraction_cost_cents: 0,
+      created_at: now
+    }
+  };
+}
+
 export async function processDocument(params: {
   documentId?: string;
   organizationId: string;
@@ -52,6 +130,11 @@ export async function processDocument(params: {
   mimeType: string;
 }): Promise<DocumentRecord> {
   const documentId = params.documentId ?? randomUUID();
+
+  if (!env.ANTHROPIC_API_KEY) {
+    return buildMockDocumentResult({ ...params, documentId });
+  }
+
   const imageResult = await convertPdfToImages({
     documentId,
     storagePath: params.storagePath,
