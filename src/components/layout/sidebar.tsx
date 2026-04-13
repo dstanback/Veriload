@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  BarChart3,
   Bell,
   Check,
   ChevronDown,
@@ -29,6 +30,11 @@ const links = [
     href: "/dashboard/shipments",
     label: "Shipments",
     icon: FileSearch
+  },
+  {
+    href: "/dashboard/analytics",
+    label: "Analytics",
+    icon: BarChart3
   },
   {
     href: "/dashboard/upload",
