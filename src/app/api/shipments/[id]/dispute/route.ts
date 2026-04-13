@@ -2,13 +2,24 @@ import { NextResponse } from "next/server";
 
 import { getCurrentAppSession } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { isEmailConfigured } from "@/lib/email/client";
 import {
   generateDisputeEmail,
   type DisputeDiscrepancy,
 } from "@/lib/email/generate-dispute";
+import { sendDisputeEmail } from "@/lib/email/send-dispute";
 import { disputeShipment } from "@/lib/repository";
 
 export const runtime = "nodejs";
+
+function wrapDisputeBodyAsHtml(body: string): string {
+  const escaped = body
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\n/g, "<br>");
+  return `<!DOCTYPE html><html><body style="font-family:sans-serif;font-size:14px;line-height:1.6;color:#333;">${escaped}</body></html>`;
+}
 
 export async function POST(
   request: Request,
@@ -25,6 +36,7 @@ export async function POST(
   const body = (await request.json().catch(() => ({}))) as {
     reason?: string;
     discrepancyIds?: string[];
+    carrierEmail?: string;
   };
 
   if (!body.reason || body.reason.trim().length === 0) {
@@ -35,6 +47,7 @@ export async function POST(
   }
 
   const reason = body.reason.trim();
+  const carrierEmail = body.carrierEmail?.trim() || null;
 
   const shipment = await disputeShipment(
     id,
@@ -74,7 +87,23 @@ export async function POST(
     reason,
   });
 
-  // Update the audit log entry with the generated email subject
+  // Attempt to send the email if carrier email is provided and SendGrid is configured
+  let emailSendResult: { sent: boolean; messageId?: string; error?: string } = {
+    sent: false,
+  };
+
+  if (carrierEmail && isEmailConfigured()) {
+    emailSendResult = await sendDisputeEmail({
+      to: carrierEmail,
+      carrierName: shipment.carrier_name ?? "Unknown Carrier",
+      subject: email.subject,
+      htmlBody: wrapDisputeBodyAsHtml(email.body),
+      textBody: email.body,
+      shipmentRef: shipment.shipment_ref ?? shipment.id,
+    });
+  }
+
+  // Update the audit log entry with the generated email subject and send status
   const auditEntry = await db.auditLog.findFirst({
     where: {
       shipmentId: id,
@@ -88,10 +117,30 @@ export async function POST(
     await db.auditLog.update({
       where: { id: auditEntry.id },
       data: {
-        details: { ...details, email_subject: email.subject },
+        details: {
+          ...details,
+          email_subject: email.subject,
+          ...(carrierEmail
+            ? {
+                carrier_email: carrierEmail,
+                email_sent: emailSendResult.sent,
+                email_message_id: emailSendResult.messageId ?? null,
+                email_send_error: emailSendResult.error ?? null,
+              }
+            : {}),
+        },
       },
     });
   }
 
-  return NextResponse.json({ shipment, email });
+  return NextResponse.json({
+    shipment,
+    email: {
+      subject: email.subject,
+      body: email.body,
+      sent: emailSendResult.sent,
+      messageId: emailSendResult.messageId ?? null,
+      carrierEmail: carrierEmail ?? null,
+    },
+  });
 }
