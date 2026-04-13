@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  BarChart3,
   Bell,
   Check,
   ChevronDown,
@@ -11,6 +12,7 @@ import {
   FileSearch,
   LayoutDashboard,
   Rocket,
+  ScrollText,
   Settings,
   UploadCloud,
   X,
@@ -31,6 +33,11 @@ const links = [
     icon: FileSearch
   },
   {
+    href: "/dashboard/analytics",
+    label: "Analytics",
+    icon: BarChart3
+  },
+  {
     href: "/dashboard/upload",
     label: "Upload",
     icon: UploadCloud
@@ -39,6 +46,11 @@ const links = [
     href: "/dashboard/notifications",
     label: "Notifications",
     icon: Bell
+  },
+  {
+    href: "/dashboard/audit-log",
+    label: "Audit Log",
+    icon: ScrollText
   },
   {
     href: "/dashboard/settings",

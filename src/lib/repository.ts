@@ -1062,6 +1062,95 @@ export async function editApproveShipment(
   return shipmentId ? getShipmentDetail(shipmentId) : null;
 }
 
+/* ------------------------------------------------------------------ */
+/*  Audit Log — paginated queries                                      */
+/* ------------------------------------------------------------------ */
+
+export interface AuditLogFilters {
+  actions?: string[];
+  userId?: string;
+  shipmentRef?: string;
+  dateFrom?: string;
+  dateTo?: string;
+}
+
+function buildAuditLogWhere(organizationId: string, filters?: AuditLogFilters) {
+  const where: Record<string, unknown> = { organizationId };
+
+  if (filters?.actions && filters.actions.length > 0) {
+    where.action = { in: filters.actions };
+  }
+  if (filters?.userId) {
+    where.userId = filters.userId;
+  }
+  if (filters?.shipmentRef) {
+    where.shipment = {
+      OR: [
+        { shipmentRef: { contains: filters.shipmentRef, mode: "insensitive" } },
+        { bolNumber: { contains: filters.shipmentRef, mode: "insensitive" } },
+      ],
+    };
+  }
+  if (filters?.dateFrom || filters?.dateTo) {
+    const createdAt: Record<string, Date> = {};
+    if (filters.dateFrom) {
+      const d = new Date(filters.dateFrom + "T00:00:00");
+      if (!isNaN(d.getTime())) createdAt.gte = d;
+    }
+    if (filters.dateTo) {
+      const d = new Date(filters.dateTo + "T23:59:59.999");
+      if (!isNaN(d.getTime())) createdAt.lte = d;
+    }
+    if (Object.keys(createdAt).length > 0) {
+      where.createdAt = createdAt;
+    }
+  }
+
+  return where;
+}
+
+export async function getAuditLogs(
+  filters?: AuditLogFilters,
+  page = 1,
+  pageSize = 50,
+) {
+  const organizationId = await getScopedOrganizationId();
+  const where = buildAuditLogWhere(organizationId, filters);
+
+  const logs = await db.auditLog.findMany({
+    where,
+    include: {
+      user: { select: { id: true, name: true, email: true } },
+      shipment: { select: { id: true, shipmentRef: true, bolNumber: true } },
+    },
+    orderBy: { createdAt: "desc" },
+    skip: (page - 1) * pageSize,
+    take: pageSize,
+  });
+
+  return logs.map((item) => ({
+    ...mapAuditLog(item),
+    user_name: item.user?.name ?? null,
+    user_email: item.user?.email ?? null,
+    shipment_ref: item.shipment?.shipmentRef ?? item.shipment?.bolNumber ?? null,
+  }));
+}
+
+export async function getAuditLogCount(filters?: AuditLogFilters) {
+  const organizationId = await getScopedOrganizationId();
+  const where = buildAuditLogWhere(organizationId, filters);
+  return db.auditLog.count({ where });
+}
+
+export async function getOrgUsers() {
+  const organizationId = await getScopedOrganizationId();
+  return db.user.findMany({
+    where: { organizationId },
+    select: { id: true, name: true, email: true },
+    orderBy: { name: "asc" },
+  });
+}
+
 export async function createDemoDataIfEmpty() {
   const orgCount = await db.organization.count();
 
