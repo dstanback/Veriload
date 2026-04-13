@@ -7,6 +7,7 @@ import { Card } from "@/components/ui/card";
 import { getAnalyticsData } from "@/lib/analytics";
 import { formatCurrency } from "@/lib/utils";
 import { DateRangeSelector } from "@/components/dashboard/analytics/date-range-selector";
+import { DownloadReportButton } from "@/components/dashboard/analytics/download-report-button";
 import { SavingsChart } from "@/components/dashboard/analytics/savings-chart";
 import { VolumeChart, DocTypePills } from "@/components/dashboard/analytics/volume-chart";
 import {
@@ -60,9 +61,14 @@ export default async function AnalyticsPage({ searchParams }: PageProps) {
           </p>
           <h1 className="mt-1 text-2xl font-semibold">Reports &amp; Insights</h1>
         </div>
-        <Suspense>
-          <DateRangeSelector />
-        </Suspense>
+        <div className="flex flex-wrap items-center gap-3">
+          <Suspense>
+            <DateRangeSelector />
+          </Suspense>
+          <Suspense>
+            <DownloadReportButton />
+          </Suspense>
+        </div>
       </div>
 
       <Suspense fallback={<AnalyticsSkeleton />}>
