@@ -30,6 +30,7 @@ jobs:
 
     env:
       DATABASE_URL: postgresql://veriload:veriload@localhost:5432/veriload_test
+      DIRECT_DATABASE_URL: postgresql://veriload:veriload@localhost:5432/veriload_test
 
     steps:
       - uses: actions/checkout@v4
@@ -67,6 +68,7 @@ jobs:
 
     env:
       DATABASE_URL: postgresql://veriload:veriload@localhost:5432/veriload_e2e
+      DIRECT_DATABASE_URL: postgresql://veriload:veriload@localhost:5432/veriload_e2e
       DEV_USER_EMAIL: ops@acmefreight.com
       DEV_ORG_SLUG: acme
       DEV_ORG_NAME: Acme Logistics
