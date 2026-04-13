@@ -2,23 +2,63 @@ import "server-only";
 
 export interface ParsedInboundAttachment {
   filename: string;
-  mimeType: string;
+  contentType: string;
   size: number;
   buffer: Buffer;
 }
 
 export interface ParsedInboundEmail {
-  to: string;
-  from: string;
+  sender: string;
+  recipients: string[];
   subject: string;
-  cc: string[];
-  date: string | null;
+  text: string;
+  html: string;
   attachments: ParsedInboundAttachment[];
 }
 
-function shouldIgnoreAttachment(filename: string, size: number) {
+const ALLOWED_MIME_TYPES = new Set([
+  "application/pdf",
+  "image/png",
+  "image/jpeg",
+  "image/jpg",
+  "image/tiff"
+]);
+
+const IGNORED_EXTENSIONS = new Set([".sig", ".vcf"]);
+
+function shouldKeepAttachment(filename: string, mimeType: string, size: number): boolean {
   const lower = filename.toLowerCase();
-  return lower.endsWith(".sig") || lower.endsWith(".vcf") || size < 10_000;
+
+  for (const ext of IGNORED_EXTENSIONS) {
+    if (lower.endsWith(ext)) return false;
+  }
+
+  // Ignore inline images smaller than 10 KB
+  if (size < 10_000) return false;
+
+  if (!ALLOWED_MIME_TYPES.has(mimeType.toLowerCase())) return false;
+
+  return true;
+}
+
+function parseEnvelopeRecipients(formData: FormData): string[] {
+  const envelopeRaw = formData.get("envelope");
+  if (envelopeRaw) {
+    try {
+      const envelope = JSON.parse(`${envelopeRaw}`) as { to?: string[] };
+      if (Array.isArray(envelope.to) && envelope.to.length > 0) {
+        return envelope.to.map((addr) => addr.trim().toLowerCase());
+      }
+    } catch {
+      // fall through to `to` header
+    }
+  }
+
+  const toHeader = `${formData.get("to") ?? ""}`;
+  return toHeader
+    .split(",")
+    .map((addr) => addr.trim().toLowerCase())
+    .filter(Boolean);
 }
 
 export async function parseInboundEmail(formData: FormData): Promise<ParsedInboundEmail> {
@@ -31,27 +71,26 @@ export async function parseInboundEmail(formData: FormData): Promise<ParsedInbou
       continue;
     }
 
-    if (shouldIgnoreAttachment(file.name, file.size)) {
+    const mimeType = file.type || "application/octet-stream";
+
+    if (!shouldKeepAttachment(file.name, mimeType, file.size)) {
       continue;
     }
 
     attachments.push({
       filename: file.name,
-      mimeType: file.type || "application/octet-stream",
+      contentType: mimeType,
       size: file.size,
       buffer: Buffer.from(await file.arrayBuffer())
     });
   }
 
   return {
-    to: `${formData.get("to") ?? ""}`,
-    from: `${formData.get("from") ?? ""}`,
+    sender: `${formData.get("from") ?? ""}`,
+    recipients: parseEnvelopeRecipients(formData),
     subject: `${formData.get("subject") ?? ""}`,
-    cc: `${formData.get("cc") ?? ""}`
-      .split(",")
-      .map((item) => item.trim())
-      .filter(Boolean),
-    date: formData.get("date") ? `${formData.get("date")}` : null,
+    text: `${formData.get("text") ?? ""}`,
+    html: `${formData.get("html") ?? ""}`,
     attachments
   };
 }

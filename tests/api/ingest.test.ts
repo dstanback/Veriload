@@ -20,5 +20,7 @@ describe("inbound email parsing", () => {
 
     expect(result.attachments).toHaveLength(1);
     expect(result.attachments[0]?.filename).toBe("invoice.pdf");
+    expect(result.sender).toBe("ops@example.com");
+    expect(result.recipients).toContain("docs@acme.veriload.local");
   });
 });

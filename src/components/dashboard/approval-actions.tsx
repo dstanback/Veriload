@@ -15,6 +15,7 @@ import { useRouter } from "next/navigation";
 import { startTransition, useCallback, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
@@ -38,6 +39,9 @@ interface ApprovalActionsProps {
 interface DisputeEmail {
   subject: string;
   body: string;
+  sent?: boolean;
+  messageId?: string | null;
+  carrierEmail?: string | null;
 }
 
 /* ------------------------------------------------------------------ */
@@ -99,14 +103,19 @@ export function ApprovalActions({
   const handleDisputeSubmit = useCallback(
     async (
       reason: string,
-      discrepancyIds: string[]
+      discrepancyIds: string[],
+      carrierEmail: string
     ): Promise<DisputeEmail | null> => {
       setLoading("dispute");
       try {
         const res = await fetch(`/api/shipments/${shipmentId}/dispute`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ reason, discrepancyIds }),
+          body: JSON.stringify({
+            reason,
+            discrepancyIds,
+            ...(carrierEmail ? { carrierEmail } : {}),
+          }),
         });
         if (!res.ok) {
           const body = await res.json().catch(() => ({}));
@@ -242,12 +251,29 @@ function EmailPreview({
   return (
     <div className="flex flex-1 flex-col">
       <div className="flex-1 space-y-4 overflow-y-auto px-6 py-6">
-        <div className="flex items-center gap-2 text-emerald-700">
-          <CheckCircle className="h-5 w-5" />
-          <p className="text-sm font-semibold">
-            Dispute submitted — email draft ready
-          </p>
-        </div>
+        {/* Send status banner */}
+        {email.sent ? (
+          <div className="flex items-center gap-2 rounded-xl bg-emerald-50 px-4 py-3 text-emerald-700">
+            <Mail className="h-5 w-5 shrink-0" />
+            <div>
+              <p className="text-sm font-semibold">
+                Email sent to {email.carrierEmail}
+              </p>
+              {email.messageId && (
+                <p className="mt-0.5 text-xs text-emerald-600">
+                  Message ID: {email.messageId}
+                </p>
+              )}
+            </div>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2 text-emerald-700">
+            <CheckCircle className="h-5 w-5" />
+            <p className="text-sm font-semibold">
+              Dispute submitted — email draft ready
+            </p>
+          </div>
+        )}
 
         <div className="space-y-3 rounded-2xl border border-[color:var(--border)] bg-slate-50 p-5">
           <div>
@@ -255,7 +281,7 @@ function EmailPreview({
               To
             </p>
             <p className="mt-0.5 text-sm font-medium text-[color:var(--foreground)]">
-              {carrierName ?? "Carrier"} — Accounts Receivable
+              {email.carrierEmail ?? `${carrierName ?? "Carrier"} — Accounts Receivable`}
             </p>
           </div>
           <div>
@@ -279,7 +305,6 @@ function EmailPreview({
           Copy to Clipboard
         </Button>
         <Button className="flex-1" onClick={onClose}>
-          <Mail className="mr-2 h-4 w-4" />
           Done
         </Button>
       </div>
@@ -307,7 +332,8 @@ function DisputeDrawer({
   loading: boolean;
   onSubmit: (
     reason: string,
-    discrepancyIds: string[]
+    discrepancyIds: string[],
+    carrierEmail: string
   ) => Promise<DisputeEmail | null>;
   onClose: () => void;
 }) {
@@ -322,6 +348,7 @@ function DisputeDrawer({
     return initial;
   });
   const [reason, setReason] = useState("");
+  const [carrierEmail, setCarrierEmail] = useState("");
   const [emailPreview, setEmailPreview] = useState<DisputeEmail | null>(null);
   const backdropRef = useRef<HTMLDivElement>(null);
 
@@ -339,11 +366,17 @@ function DisputeDrawer({
 
   const handleSubmit = async () => {
     if (!reason.trim()) return;
-    const email = await onSubmit(reason.trim(), Array.from(selected));
+    const email = await onSubmit(
+      reason.trim(),
+      Array.from(selected),
+      carrierEmail.trim()
+    );
     if (email) {
       setEmailPreview(email);
     }
   };
+
+  const hasCarrierEmail = carrierEmail.trim().length > 0;
 
   return (
     <>
@@ -410,6 +443,22 @@ function DisputeDrawer({
                     {shipmentRef ?? shipmentId}
                   </p>
                 </div>
+              </div>
+
+              {/* Carrier email (optional) */}
+              <div className="space-y-2">
+                <label className="text-xs uppercase tracking-[0.2em] text-[color:var(--muted)]">
+                  Carrier email (optional)
+                </label>
+                <Input
+                  type="email"
+                  placeholder="ap@carrier.com"
+                  value={carrierEmail}
+                  onChange={(e) => setCarrierEmail(e.target.value)}
+                />
+                <p className="text-xs text-[color:var(--muted)]">
+                  If provided, the dispute email will be sent automatically when SendGrid is configured.
+                </p>
               </div>
 
               {/* Discrepancy checkboxes */}
@@ -491,10 +540,16 @@ function DisputeDrawer({
               >
                 {loading ? (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : hasCarrierEmail ? (
+                  <Mail className="mr-2 h-4 w-4" />
                 ) : (
                   <Send className="mr-2 h-4 w-4" />
                 )}
-                {loading ? "Submitting..." : "Submit Dispute"}
+                {loading
+                  ? "Submitting..."
+                  : hasCarrierEmail
+                    ? "Submit & Send"
+                    : "Submit Dispute"}
               </Button>
             </div>
           </>

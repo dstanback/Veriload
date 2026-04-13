@@ -1,7 +1,7 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { Eye, FileText, Loader2, RefreshCw } from "lucide-react";
+import { Eye, FileText, Loader2, Mail, RefreshCw } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { startTransition, useCallback, useState } from "react";
 
@@ -102,10 +102,24 @@ export function DocumentViewer({
                       <p className="mt-1 truncate text-lg font-semibold">
                         {document.original_filename ?? document.id}
                       </p>
+                      {document.source === "email" && (
+                        <p className="mt-1 flex items-center gap-1.5 text-xs text-[color:var(--muted)]">
+                          <Mail className="h-3.5 w-3.5" />
+                          {(document.source_metadata?.sender as string) ?? "Email ingestion"}
+                        </p>
+                      )}
                     </div>
-                    <span className="shrink-0 rounded-full bg-black/5 px-3 py-1 text-xs font-medium">
-                      {document.doc_type ?? "unknown"}
-                    </span>
+                    <div className="flex shrink-0 items-center gap-2">
+                      {document.source === "email" && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700">
+                          <Mail className="h-3 w-3" />
+                          Email
+                        </span>
+                      )}
+                      <span className="rounded-full bg-black/5 px-3 py-1 text-xs font-medium">
+                        {document.doc_type ?? "unknown"}
+                      </span>
+                    </div>
                   </div>
                   <div className="rounded-[1.5rem] border border-dashed border-[color:var(--border)] bg-[#f7f4ee] p-4">
                     <div className="flex items-center justify-between">

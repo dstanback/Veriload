@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
 
 import { db } from "@/lib/db";
+import { isEmailConfigured } from "@/lib/email/client";
 import { buildDailySummary } from "@/lib/email/build-summary";
 import { renderSummaryHtml, renderSummaryText } from "@/lib/email/render-summary";
+import { sendSummaryEmail } from "@/lib/email/send-summary";
 import { env } from "@/lib/env";
 
 export const runtime = "nodejs";
@@ -58,6 +60,8 @@ export async function POST(request: Request) {
     organizationId: string;
     orgName: string;
     generated: boolean;
+    emailSent?: boolean;
+    emailResults?: Array<{ recipient: string; sent: boolean; error?: string }>;
     reason?: string;
   }> = [];
 
@@ -79,8 +83,34 @@ export async function POST(request: Request) {
     const summary = await buildDailySummary(org.id, date);
     const html = renderSummaryHtml(summary, org.name);
     const text = renderSummaryText(summary, org.name);
+    const subject = `Veriload Daily Summary — ${org.name} — ${summary.date}`;
 
-    // Store in audit log for preview (MVP: don't send email)
+    // Attempt to send email if recipients are configured and SendGrid is available
+    const summaryRecipients = Array.isArray(settings.summaryRecipients)
+      ? (settings.summaryRecipients as string[]).filter(
+          (r) => typeof r === "string" && r.includes("@")
+        )
+      : [];
+
+    let emailResults: Array<{ recipient: string; sent: boolean; error?: string }> = [];
+
+    if (summaryRecipients.length > 0 && isEmailConfigured()) {
+      emailResults = (
+        await sendSummaryEmail({
+          to: summaryRecipients,
+          orgName: org.name,
+          subject,
+          html,
+          text,
+        })
+      ).map((r) => ({
+        recipient: r.recipient,
+        sent: r.sent,
+        error: r.error,
+      }));
+    }
+
+    // Store in audit log
     await db.auditLog.create({
       data: {
         organizationId: org.id,
@@ -96,6 +126,13 @@ export async function POST(request: Request) {
             disputes: summary.disputes.count,
             potentialSavings: summary.potentialSavings,
           },
+          ...(emailResults.length > 0
+            ? {
+                emailSent: emailResults.some((r) => r.sent),
+                emailRecipients: summaryRecipients,
+                emailResults,
+              }
+            : {}),
         },
       },
     });
@@ -104,6 +141,12 @@ export async function POST(request: Request) {
       organizationId: org.id,
       orgName: org.name,
       generated: true,
+      ...(emailResults.length > 0
+        ? {
+            emailSent: emailResults.some((r) => r.sent),
+            emailResults,
+          }
+        : {}),
     });
   }
 
