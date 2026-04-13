@@ -13,11 +13,11 @@ const labels: Array<{
 
 export function StatsCards({ summary }: { summary: DashboardSummary }) {
   return (
-    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4" role="region" aria-label="Dashboard statistics">
       {labels.map((item) => (
-        <Card key={item.key} className="bg-white/85">
+        <Card key={item.key}>
           <p className="text-sm text-[color:var(--muted)]">{item.label}</p>
-          <p className="mt-3 text-4xl font-semibold">{summary[item.key]}</p>
+          <p className="mt-3 text-4xl font-semibold" aria-label={`${item.label}: ${summary[item.key]}`}>{summary[item.key]}</p>
         </Card>
       ))}
     </div>
