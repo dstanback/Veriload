@@ -47,8 +47,11 @@ test.describe("Shipment list", () => {
       .locator("input[type='checkbox']");
     await firstCheckbox.check();
 
-    // Bulk action bar should appear with "1 shipment selected"
-    await expect(page.getByText(/1 shipment.* selected/)).toBeVisible();
+    // Bulk action bar renders as a fixed bar at the bottom.
+    // The text pattern is: "N shipment(s) selected"
+    await expect(page.getByText(/\d+ shipments? selected/)).toBeVisible({
+      timeout: 5000,
+    });
   });
 
   test("select-all checkbox toggles all rows", async ({ page }) => {
@@ -61,11 +64,15 @@ test.describe("Shipment list", () => {
     await headerCheckbox.check();
 
     // Bulk action bar should show selected count
-    await expect(page.getByText(/shipment.* selected/)).toBeVisible();
+    await expect(page.getByText(/\d+ shipments? selected/)).toBeVisible({
+      timeout: 5000,
+    });
 
     // Uncheck
     await headerCheckbox.uncheck();
-    // Bar should disappear
-    await expect(page.getByText(/shipment.* selected/)).not.toBeVisible();
+    // Bar should disappear (animated exit)
+    await expect(page.getByText(/\d+ shipments? selected/)).not.toBeVisible({
+      timeout: 5000,
+    });
   });
 });

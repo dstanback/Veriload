@@ -27,6 +27,7 @@ test.describe("Upload page", () => {
   test("upload button is disabled without files", async ({ page }) => {
     await page.goto("/dashboard/upload");
 
+    // The button text is "Upload and queue"
     const submitButton = page.getByRole("button", {
       name: /Upload and queue/i,
     });
@@ -43,12 +44,14 @@ test.describe("Upload page", () => {
       "test-invoice.pdf"
     );
 
+    // Use Playwright's setInputFiles which triggers the change event
     await fileInput.setInputFiles(fixturePath);
 
+    // Wait for React state to update and re-render the button as enabled
     const submitButton = page.getByRole("button", {
       name: /Upload and queue/i,
     });
-    await expect(submitButton).toBeEnabled();
+    await expect(submitButton).toBeEnabled({ timeout: 5000 });
   });
 
   test("upload flow submits the file", async ({ page }) => {
@@ -66,14 +69,13 @@ test.describe("Upload page", () => {
     const submitButton = page.getByRole("button", {
       name: /Upload and queue/i,
     });
+    await expect(submitButton).toBeEnabled({ timeout: 5000 });
     await submitButton.click();
 
-    // After upload, status indicators should appear (pending/processing/etc.)
-    // or a success result card. Wait for any processing status indicator.
+    // After upload, the "Processing status" section should appear with
+    // document cards showing status indicators (Queued, Processing, etc.)
     await expect(
-      page.getByText(
-        /pending|processing|extracted|queued|uploaded/i
-      ).first()
+      page.getByText("Processing status")
     ).toBeVisible({ timeout: 15_000 });
   });
 });

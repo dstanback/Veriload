@@ -28,7 +28,8 @@ test.describe("Auth pages", () => {
 
   test("signup page has link to login", async ({ page }) => {
     await page.goto("/signup");
-    const loginLink = page.getByRole("link", { name: "Log in" });
+    // Actual link text is "Go to login"
+    const loginLink = page.getByRole("link", { name: "Go to login" });
     await expect(loginLink).toBeVisible();
     await expect(loginLink).toHaveAttribute("href", "/login");
   });

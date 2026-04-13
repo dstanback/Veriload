@@ -18,15 +18,16 @@ test.describe("Dashboard", () => {
     await expect(page.getByText("Open disputes")).toBeVisible();
   });
 
-  test("renders discrepancy donut chart area", async ({ page }) => {
+  test("renders discrepancy chart area", async ({ page }) => {
     await goToDashboard(page);
 
-    // The "Current mix" card uses a conic-gradient div (not SVG) as a chart
+    // The "Current mix" card uses a conic-gradient div as a chart
     await expect(page.getByText("Current mix")).toBeVisible();
-    // Legend items
-    await expect(page.getByText("Green")).toBeVisible();
-    await expect(page.getByText("Yellow")).toBeVisible();
-    await expect(page.getByText("Red")).toBeVisible();
+    // Legend items — use .first() since "Green"/"Yellow"/"Red" may also
+    // appear inside Badge components elsewhere on the dashboard
+    await expect(page.getByText("Green").first()).toBeVisible();
+    await expect(page.getByText("Yellow").first()).toBeVisible();
+    await expect(page.getByText("Red").first()).toBeVisible();
   });
 
   test("activity feed shows entries", async ({ page }) => {
@@ -40,15 +41,6 @@ test.describe("Dashboard", () => {
   test("priority queue shows shipment cards", async ({ page }) => {
     await goToDashboard(page);
 
-    await expect(page.getByText("Priority queue")).toBeVisible();
-    // At least one shipment card in the priority queue should have a
-    // discrepancy badge
-    const badges = page
-      .locator("text=Priority queue")
-      .locator("..")
-      .locator("..")
-      .getByRole("status");
-    // badges may or may not exist — just ensure the section rendered
     await expect(page.getByText("Priority queue")).toBeVisible();
   });
 
