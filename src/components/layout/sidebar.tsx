@@ -12,6 +12,7 @@ import {
   FileSearch,
   LayoutDashboard,
   Rocket,
+  ScrollText,
   Settings,
   UploadCloud,
   X,
@@ -45,6 +46,11 @@ const links = [
     href: "/dashboard/notifications",
     label: "Notifications",
     icon: Bell
+  },
+  {
+    href: "/dashboard/audit-log",
+    label: "Audit Log",
+    icon: ScrollText
   },
   {
     href: "/dashboard/settings",
