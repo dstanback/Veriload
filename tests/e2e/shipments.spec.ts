@@ -1,14 +1,12 @@
 import { test, expect } from "@playwright/test";
-import { goToShipments, waitForTableRows } from "./helpers";
+import { goToShipments } from "./helpers";
 
 test.describe("Shipment list", () => {
   test("table renders with shipment rows", async ({ page }) => {
     await goToShipments(page);
 
-    // Header should be visible
     await expect(page.getByText("Reconciliation review list")).toBeVisible();
 
-    // Table should have multiple rows (seeded data has 14 shipments)
     const rows = page.locator("tbody tr");
     await expect(rows.first()).toBeVisible();
     const count = await rows.count();
@@ -28,7 +26,6 @@ test.describe("Shipment list", () => {
   test("clicking a shipment row navigates to detail page", async ({ page }) => {
     await goToShipments(page);
 
-    // Click the first shipment link in the table
     const firstLink = page.locator("tbody tr").first().getByRole("link").first();
     const href = await firstLink.getAttribute("href");
     expect(href).toMatch(/\/dashboard\/shipments\/.+/);
@@ -40,39 +37,42 @@ test.describe("Shipment list", () => {
   test("row checkbox selection works", async ({ page }) => {
     await goToShipments(page);
 
-    // Click the first row's checkbox
+    // shipment-table.tsx line 70-77: standard <input type="checkbox"> with
+    // aria-label, controlled via TanStack React Table row selection state.
+    // Use .click() instead of .check() for reliability with controlled inputs.
     const firstCheckbox = page
       .locator("tbody tr")
       .first()
       .locator("input[type='checkbox']");
-    await firstCheckbox.check();
+    await firstCheckbox.click();
 
-    // Bulk action bar renders as a fixed bar at the bottom.
-    // The text pattern is: "N shipment(s) selected"
-    await expect(page.getByText(/\d+ shipments? selected/)).toBeVisible({
-      timeout: 5000,
-    });
+    // shipment-table.tsx line 276-278: bulk action bar renders
+    // "{selectedCount} shipment{selectedCount !== 1 ? 's' : ''} selected"
+    // For 1 selected row: "1 shipment selected"
+    await expect(
+      page.locator("text=shipment selected").first()
+    ).toBeVisible({ timeout: 5000 });
   });
 
   test("select-all checkbox toggles all rows", async ({ page }) => {
     await goToShipments(page);
 
-    // Click the header checkbox to select all
-    const headerCheckbox = page
-      .locator("thead")
-      .locator("input[type='checkbox']");
-    await headerCheckbox.check();
+    // shipment-table.tsx line 93-99: header checkbox with aria-label
+    // "Select all shipments", controlled via getToggleAllPageRowsSelectedHandler
+    const headerCheckbox = page.getByLabel("Select all shipments");
+    await headerCheckbox.click();
 
-    // Bulk action bar should show selected count
-    await expect(page.getByText(/\d+ shipments? selected/)).toBeVisible({
-      timeout: 5000,
-    });
+    // shipment-table.tsx line 277: "N shipments selected" (plural for > 1)
+    await expect(
+      page.locator("text=shipments selected").first()
+    ).toBeVisible({ timeout: 5000 });
 
-    // Uncheck
-    await headerCheckbox.uncheck();
-    // Bar should disappear (animated exit)
-    await expect(page.getByText(/\d+ shipments? selected/)).not.toBeVisible({
-      timeout: 5000,
-    });
+    // Deselect
+    await headerCheckbox.click();
+
+    // Bar should disappear (framer-motion exit animation)
+    await expect(
+      page.locator("text=shipments selected")
+    ).not.toBeVisible({ timeout: 5000 });
   });
 });

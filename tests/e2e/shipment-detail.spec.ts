@@ -3,13 +3,11 @@ import { goToShipments } from "./helpers";
 
 test.describe("Shipment detail", () => {
   test("detail page loads with shipment info", async ({ page }) => {
-    // Navigate to the first shipment's detail page via the list
     await goToShipments(page);
     const firstLink = page.locator("tbody tr").first().getByRole("link").first();
     await firstLink.click();
     await expect(page).toHaveURL(/\/dashboard\/shipments\/.+/);
 
-    // The detail page should show key sections
     // Status badge should be visible
     const badges = page.getByRole("status");
     await expect(badges.first()).toBeVisible();
@@ -19,7 +17,6 @@ test.describe("Shipment detail", () => {
   });
 
   test("approve and dispute buttons render on detail page", async ({ page }) => {
-    // Navigate to the shipments page and pick the first shipment
     await page.goto("/dashboard/shipments");
     await expect(page.locator("tbody tr").first()).toBeVisible();
 
@@ -27,19 +24,18 @@ test.describe("Shipment detail", () => {
     await firstLink.click();
     await expect(page).toHaveURL(/\/dashboard\/shipments\/.+/);
 
-    // The Approve and Dispute buttons should always render (disabled for
-    // locked shipments, enabled for pending/matched ones)
-    const approveButton = page.getByRole("button", { name: "Approve" });
-    const disputeButton = page.getByRole("button", { name: "Dispute" });
+    // approval-actions.tsx line 160: button text is exactly "Approve"
+    // approval-actions.tsx line 187: another button is "Edit & Approve"
+    // Use exact:true to avoid matching "Edit & Approve" (strict mode violation)
+    const approveButton = page.getByRole("button", { name: "Approve", exact: true });
+    // approval-actions.tsx line 173: button text is "Dispute"
+    const disputeButton = page.getByRole("button", { name: "Dispute", exact: true });
 
     await expect(approveButton).toBeVisible();
     await expect(disputeButton).toBeVisible();
   });
 
   test("buttons are disabled on locked shipments", async ({ page }) => {
-    // Navigate to a shipment that should be locked (approved/disputed)
-    // The seed data has shp_1 = approved and shp_2 = disputed
-    // The list is ordered by updatedAt desc, so we navigate to the first one
     await page.goto("/dashboard/shipments");
     await expect(page.locator("tbody tr").first()).toBeVisible();
 
@@ -47,11 +43,10 @@ test.describe("Shipment detail", () => {
     await firstLink.click();
     await expect(page).toHaveURL(/\/dashboard\/shipments\/.+/);
 
-    // Check whether the buttons are enabled or disabled — both are valid
-    // depending on the shipment status
-    const approveButton = page.getByRole("button", { name: "Approve" });
+    // approval-actions.tsx line 160: "Approve" (exact to avoid "Edit & Approve")
+    const approveButton = page.getByRole("button", { name: "Approve", exact: true });
     await expect(approveButton).toBeVisible();
-    // The button exists and is either enabled or disabled based on status
+    // The button is either enabled or disabled based on status — both valid
     const isDisabled = await approveButton.isDisabled();
     expect(typeof isDisabled).toBe("boolean");
   });
@@ -62,7 +57,6 @@ test.describe("Shipment detail", () => {
     await page.goto("/dashboard/shipments");
     await expect(page.locator("tbody tr").first()).toBeVisible();
 
-    // Click first shipment
     const firstLink = page.locator("tbody tr").first().getByRole("link").first();
     await firstLink.click();
     await expect(page).toHaveURL(/\/dashboard\/shipments\/.+/);
@@ -79,13 +73,13 @@ test.describe("Shipment detail", () => {
     await firstLink.click();
     await expect(page).toHaveURL(/\/dashboard\/shipments\/.+/);
 
-    // The Edit & Approve button should exist (may be disabled on locked shipments)
-    const editButton = page.getByRole("button", { name: /Edit/i });
+    // approval-actions.tsx line 187: "Edit & Approve" or "Cancel Edit"
+    const editButton = page.getByRole("button", { name: /Edit & Approve|Cancel Edit/ });
     const isEditVisible = await editButton.isVisible().catch(() => false);
 
     if (isEditVisible) {
       const isDisabled = await editButton.isDisabled();
-      // If the button is enabled, clicking it should toggle edit mode
+      // Only click if the button is enabled (not locked)
       if (!isDisabled) {
         await editButton.click();
         await expect(page.getByText(/Edit Mode/i)).toBeVisible();
