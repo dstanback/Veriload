@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 
+import { ThemeProvider } from "@/components/ui/theme-provider";
+
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -13,8 +15,14 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <head>
+        {/* Inline script to prevent FOUC — applies dark class before first paint */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var t=localStorage.getItem("veriload-theme");var d=t==="dark"||(t!=="light"&&matchMedia("(prefers-color-scheme:dark)").matches);document.documentElement.classList.toggle("dark",d);document.documentElement.classList.toggle("light",!d)}catch(e){}})()`,
+          }}
+        />
         {/* Google Fonts — Inter (UI) and JetBrains Mono (code/data)
             On Vercel, replace these <link> tags with next/font/google imports
             for automatic self-hosting and font optimization:
@@ -30,7 +38,9 @@ export default function RootLayout({
           rel="stylesheet"
         />
       </head>
-      <body>{children}</body>
+      <body>
+        <ThemeProvider>{children}</ThemeProvider>
+      </body>
     </html>
   );
 }

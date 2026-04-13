@@ -14,46 +14,33 @@ export default async function DashboardLayout({
 }>) {
   const session = await getCurrentAppSession();
 
-  // Check if onboarding is needed (fresh account with no documents)
-  const requestHeaders = await headers();
-  const pathname = requestHeaders.get("x-next-pathname") ?? "";
-  const isOnboardingPage = pathname.includes("/onboarding");
-
-  if (!isOnboardingPage) {
-    const [org, documentCount] = await Promise.all([
-      db.organization.findUnique({
-        where: { id: session.organizationId },
-        select: { settings: true },
-      }),
-      db.document.count({
-        where: { organizationId: session.organizationId },
-      }),
-    ]);
-
-    const settings = (org?.settings ?? {}) as Record<string, unknown>;
-    if (!settings.onboardingCompleted && documentCount === 0) {
-      redirect("/dashboard/onboarding");
-    }
-  }
-
-  // Load checklist state for sidebar
-  const [documentCount, shipmentCount, org] = await Promise.all([
+  // Load org settings and counts once for both onboarding redirect and sidebar checklist
+  const [org, documentCount, shipmentCount] = await Promise.all([
+    db.organization.findUnique({
+      where: { id: session.organizationId },
+      select: { settings: true },
+    }),
     db.document.count({
       where: { organizationId: session.organizationId },
     }),
     db.shipment.count({
       where: { organizationId: session.organizationId },
     }),
-    db.organization.findUnique({
-      where: { id: session.organizationId },
-      select: { settings: true },
-    }),
   ]);
 
   const settings = (org?.settings ?? {}) as Record<string, unknown>;
   const onboardingCompleted = Boolean(settings.onboardingCompleted);
-  const hasTolerances = settings.autoApproveEnabled != null;
 
+  // Check if onboarding is needed (fresh account with no documents)
+  const requestHeaders = await headers();
+  const pathname = requestHeaders.get("x-next-pathname") ?? "";
+  const isOnboardingPage = pathname.includes("/onboarding");
+
+  if (!isOnboardingPage && !onboardingCompleted && documentCount === 0) {
+    redirect("/dashboard/onboarding");
+  }
+
+  const hasTolerances = settings.autoApproveEnabled != null;
   const checklistItems = {
     uploadedDocument: documentCount > 0,
     reviewedShipment: shipmentCount > 0,

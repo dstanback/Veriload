@@ -73,7 +73,7 @@ export function Sidebar({ checklist }: { checklist?: ChecklistState }) {
     checklist && !checklist.dismissed && !allDone && !dismissed;
 
   return (
-    <aside className="rounded-[2rem] bg-[#17202a] p-5 text-white shadow-card">
+    <aside className="rounded-[2rem] bg-[#17202a] p-5 text-white shadow-card dark:bg-slate-900 dark:border dark:border-slate-800 dark:shadow-none" role="navigation" aria-label="Main navigation">
       <div className="mb-8">
         <p className="text-xs uppercase tracking-[0.22em] text-white/60">Veriload</p>
         <p className="mt-2 text-2xl font-semibold">Ops Console</p>
@@ -130,7 +130,7 @@ export function Sidebar({ checklist }: { checklist?: ChecklistState }) {
                   type="button"
                   onClick={() => setDismissed(true)}
                   className="rounded-full p-1 text-white/40 transition hover:bg-white/10 hover:text-white"
-                  title="Dismiss"
+                  aria-label="Dismiss getting started checklist"
                 >
                   <X size={14} />
                 </button>
