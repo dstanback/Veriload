@@ -5,8 +5,30 @@
 [![CI](https://github.com/dstanback/Veriload/actions/workflows/ci.yml/badge.svg)](https://github.com/dstanback/Veriload/actions/workflows/ci.yml)
 [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fdstanback%2FVeriload&env=DATABASE_URL,DIRECT_DATABASE_URL&envDescription=Required%20environment%20variables%20for%20Veriload&project-name=veriload)
 
-<!-- Add screenshot: run `npm run dev`, seed with `npm run seed`, then capture the dashboard at /dashboard -->
-<!-- ![Veriload Dashboard](docs/screenshot.png) -->
+![Veriload Dashboard](docs/screenshots/dashboard.png)
+
+<details>
+<summary>More screenshots</summary>
+
+### Shipment List
+![Shipments](docs/screenshots/shipments.png)
+
+### Shipment Detail — Disputed
+![Shipment Detail](docs/screenshots/shipment-detail.png)
+
+### Document Viewer
+![Document Viewer](docs/screenshots/document-viewer.png)
+
+### Upload
+![Upload](docs/screenshots/upload.png)
+
+### Analytics
+![Analytics](docs/screenshots/analytics.png)
+
+### Dark Mode
+![Dark Mode](docs/screenshots/dark-mode.png)
+
+</details>
 
 ---
 
