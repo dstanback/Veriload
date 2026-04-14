@@ -31,7 +31,7 @@ export function ConfidenceHistogram({ data }: { data: ConfidenceBucket[] }) {
 
   return (
     <div className="h-52 w-full">
-      <ResponsiveContainer width="100%" height="100%">
+      <ResponsiveContainer width="100%" height="100%" minWidth={0}>
         <BarChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
           <CartesianGrid
             strokeDasharray="3 3"
@@ -77,7 +77,7 @@ export function ClassificationPie({ data }: { data: DocTypeCount[] }) {
 
   return (
     <div className="h-52 w-full">
-      <ResponsiveContainer width="100%" height="100%">
+      <ResponsiveContainer width="100%" height="100%" minWidth={0}>
         <PieChart>
           <Pie
             data={data}
