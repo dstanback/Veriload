@@ -37,7 +37,7 @@ function formatShortDate(label: unknown) {
 export function VolumeChart({ data }: { data: StackedTimeSeriesPoint[] }) {
   return (
     <div className="h-72 w-full">
-      <ResponsiveContainer width="100%" height="100%">
+      <ResponsiveContainer width="100%" height="100%" minWidth={0}>
         <BarChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
           <CartesianGrid
             strokeDasharray="3 3"
