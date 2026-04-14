@@ -32,6 +32,7 @@
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "generate-test-docs": "tsx scripts/generate-test-docs.ts",
+    "capture-screenshots": "tsx scripts/capture-screenshots.ts",
     "postinstall": "prisma generate"
   },
   "dependencies": {
